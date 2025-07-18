@@ -20,6 +20,7 @@ int main()
 
 	const std::filesystem::path resourcesDir = "res";
 	const auto unopenedCellPath = resourcesDir / "unopened-cell.png";
+	const auto unopenedSelectedCellPath = resourcesDir / "unopened-selected-cell.png";
 	const auto flaggedCellPath = resourcesDir / "flagged-cell.png";
 	const auto openedCell0Path = resourcesDir / "opened-cell-0.png";
 	const auto openedCell1Path = resourcesDir / "opened-cell-1.png";
@@ -36,6 +37,7 @@ int main()
 	const auto openedCellMinePath = resourcesDir / "opened-cell-mine.png";
 
 	sf::Texture unopenedCellTexture{unopenedCellPath};
+	sf::Texture unopenedSelectedCellTexture{unopenedSelectedCellPath};
 	sf::Texture flaggedCellTexture{flaggedCellPath};
 	sf::Texture openedCell0Texture{openedCell0Path};
 	sf::Texture openedCell1Texture{openedCell1Path};
@@ -52,6 +54,7 @@ int main()
 	sf::Texture openedCellMineTexture{openedCellMinePath};
 
 	sf::Sprite unopenedCellSprite{unopenedCellTexture};
+	sf::Sprite unopenedSelectedCellSprite{unopenedSelectedCellTexture};
 	sf::Sprite flaggedCellSprite{flaggedCellTexture};
 	sf::Sprite openedCell0Sprite{openedCell0Texture};
 	sf::Sprite openedCell1Sprite{openedCell1Texture};
@@ -143,7 +146,7 @@ int main()
 				{
 					std::size_t row = data->position.y / cellSize;
 					std::size_t col = data->position.x / cellSize;
-					
+
 					if (pressedCell == &board[row * boardWidth + col])
 					{
 						switch (data->button)
@@ -190,7 +193,10 @@ int main()
 
 				if (!cell.opened)
 				{
-					drawSprite(unopenedCellSprite);
+					if (&cell == pressedCell)
+						drawSprite(unopenedSelectedCellSprite);
+					else
+						drawSprite(unopenedCellSprite);
 					continue;
 				}
 
