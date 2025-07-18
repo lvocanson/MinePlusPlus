@@ -2,15 +2,134 @@
 #include <cassert>
 #include <random>
 
+const std::filesystem::path RESOURCES_DIR = "res";
+constexpr auto UNOPENED_CELL_FILE = "unopened-cell.png";
+constexpr auto UNOPENED_SELECTED_CELL_FILE = "unopened-selected-cell.png";
+constexpr auto UNOPENED_FLAGGED_CELL_FILE = "unopened-flagged-cell.png";
+constexpr auto OPENED_CELL_0_FILE = "opened-cell-0.png";
+constexpr auto OPENED_CELL_1_FILE = "opened-cell-1.png";
+constexpr auto OPENED_CELL_2_FILE = "opened-cell-2.png";
+constexpr auto OPENED_CELL_3_FILE = "opened-cell-3.png";
+constexpr auto OPENED_CELL_4_FILE = "opened-cell-4.png";
+constexpr auto OPENED_CELL_5_FILE = "opened-cell-5.png";
+constexpr auto OPENED_CELL_6_FILE = "opened-cell-6.png";
+constexpr auto OPENED_CELL_7_FILE = "opened-cell-7.png";
+constexpr auto OPENED_CELL_8_FILE = "opened-cell-8.png";
+constexpr auto OPENED_CELL_CLICKED_MINE_FILE = "opened-cell-clicked-mine.png";
+constexpr auto OPENED_CELL_RUNNING_MINE_FILE = "opened-cell-running-mine.png";
+constexpr auto OPENED_CELL_NO_MINE_FILE = "opened-cell-no-mine.png";
+constexpr auto OPENED_CELL_MINE_FILE = "opened-cell-mine.png";
+
 struct Cell
 {
 	bool mined : 1;
 	bool opened : 1;
 	bool flagged : 1;
 	std::uint8_t adjacentMines : 5; // [0, 31]
+};
 
-	bool open() { if (!flagged) opened = true; return mined && opened; }
-	void flag() { if (!opened) flagged = !flagged; }
+struct Board
+{
+	Board(std::size_t width, std::size_t height)
+		: width(width), height(height)
+		, cells(width* height, Cell{})
+	{
+		assert(cells.size() > 0 && "width and height must be non-zero numbers");
+	}
+
+	bool areCoordinatesValid(std::size_t col, std::size_t row) const
+	{
+		// coordinates are unsigned, no need to check >= 0
+		return col < width && row < height;
+	}
+
+	std::size_t toIndex(std::size_t col, std::size_t row) const
+	{
+		assert(areCoordinatesValid(col, row));
+		return col + row * width;
+	}
+
+	// call `func` up to 9 times with the cell at (col, row) and its neighbours
+	template <typename F> requires requires (F f, Cell c, size_t i) { { f(c, i) }; }
+	void foreachNeighboor(std::size_t col, std::size_t row, F&& func)
+	{
+		for (int dr = -1; dr <= 1; ++dr)
+		{
+			for (int dc = -1; dc <= 1; ++dc)
+			{
+				const std::size_t nCol = col + dc;
+				const std::size_t nRow = row + dr;
+
+				if (!areCoordinatesValid(nCol, nRow))
+					continue;
+
+				const auto nIdx = toIndex(nCol, nRow);
+				func(cells[nIdx], nIdx);
+			}
+		}
+	}
+
+	// call `func` up to 9 times with the cell at index and its neighbours
+	template <typename F> requires requires (F f, Cell c, size_t i) { { f(c, i) }; }
+	void foreachNeighboor(std::size_t index, F&& func)
+	{
+		const auto col = index % width;
+		const auto row = index / width;
+		foreachNeighboor(col, row, std::forward<F>(func));
+	}
+
+	void addMines(std::size_t count)
+	{
+		std::mt19937_64 gen(std::random_device{}());
+		std::uniform_int_distribution<std::size_t> dist(0, cells.size() - 1);
+
+		for (std::size_t minesRemaining = count; minesRemaining > 0;)
+		{
+			const auto randIdx = dist(gen);
+			auto& randCell = cells[randIdx];
+			if (randCell.mined)
+				continue;
+
+			randCell.mined = true;
+			foreachNeighboor(randIdx, [](Cell& c, auto) { ++c.adjacentMines; });
+			--minesRemaining;
+		}
+	}
+
+	void open(std::size_t index)
+	{
+		assert(index < cells.size());
+
+		auto& first = cells[index];
+		if (first.opened || first.flagged)
+			return;
+
+		std::vector<std::size_t> cellIndices = {index};
+		while (!cellIndices.empty())
+		{
+			const auto idx = cellIndices.back();
+			cellIndices.pop_back();
+
+			auto& cell = cells[idx];
+			cell.opened = true;
+			if (cell.adjacentMines == 0)
+			{
+				foreachNeighboor(idx, [&](Cell& c, size_t i)
+				{
+					if (!c.opened) cellIndices.emplace_back(i);
+				});
+			}
+		}
+	}
+
+	void flag(std::size_t index)
+	{
+		assert(index < cells.size());
+		cells[index].flagged ^= true;
+	}
+
+	std::size_t width, height;
+	std::vector<Cell> cells;
 };
 
 int main()
@@ -18,44 +137,26 @@ int main()
 	auto window = sf::RenderWindow(sf::VideoMode({900u, 600u}), "Mine++");
 	window.setVerticalSyncEnabled(true);
 
-	const std::filesystem::path resourcesDir = "res";
-	const auto unopenedCellPath = resourcesDir / "unopened-cell.png";
-	const auto unopenedSelectedCellPath = resourcesDir / "unopened-selected-cell.png";
-	const auto flaggedCellPath = resourcesDir / "flagged-cell.png";
-	const auto openedCell0Path = resourcesDir / "opened-cell-0.png";
-	const auto openedCell1Path = resourcesDir / "opened-cell-1.png";
-	const auto openedCell2Path = resourcesDir / "opened-cell-2.png";
-	const auto openedCell3Path = resourcesDir / "opened-cell-3.png";
-	const auto openedCell4Path = resourcesDir / "opened-cell-4.png";
-	const auto openedCell5Path = resourcesDir / "opened-cell-5.png";
-	const auto openedCell6Path = resourcesDir / "opened-cell-6.png";
-	const auto openedCell7Path = resourcesDir / "opened-cell-7.png";
-	const auto openedCell8Path = resourcesDir / "opened-cell-8.png";
-	const auto openedCellClickedMinePath = resourcesDir / "opened-cell-clicked-mine.png";
-	const auto openedCellRunningMinePath = resourcesDir / "opened-cell-running-mine.png";
-	const auto openedCellNoMinePath = resourcesDir / "opened-cell-no-mine.png";
-	const auto openedCellMinePath = resourcesDir / "opened-cell-mine.png";
-
-	sf::Texture unopenedCellTexture{unopenedCellPath};
-	sf::Texture unopenedSelectedCellTexture{unopenedSelectedCellPath};
-	sf::Texture flaggedCellTexture{flaggedCellPath};
-	sf::Texture openedCell0Texture{openedCell0Path};
-	sf::Texture openedCell1Texture{openedCell1Path};
-	sf::Texture openedCell2Texture{openedCell2Path};
-	sf::Texture openedCell3Texture{openedCell3Path};
-	sf::Texture openedCell4Texture{openedCell4Path};
-	sf::Texture openedCell5Texture{openedCell5Path};
-	sf::Texture openedCell6Texture{openedCell6Path};
-	sf::Texture openedCell7Texture{openedCell7Path};
-	sf::Texture openedCell8Texture{openedCell8Path};
-	sf::Texture openedCellClickedMineTexture{openedCellClickedMinePath};
-	sf::Texture openedCellRunningMineTexture{openedCellRunningMinePath};
-	sf::Texture openedCellNoMineTexture{openedCellNoMinePath};
-	sf::Texture openedCellMineTexture{openedCellMinePath};
+	const sf::Texture unopenedCellTexture{RESOURCES_DIR / UNOPENED_CELL_FILE};
+	const sf::Texture unopenedSelectedCellTexture{RESOURCES_DIR / UNOPENED_SELECTED_CELL_FILE};
+	const sf::Texture unopenedFlaggedCellTexture{RESOURCES_DIR / UNOPENED_FLAGGED_CELL_FILE};
+	const sf::Texture openedCell0Texture{RESOURCES_DIR / OPENED_CELL_0_FILE};
+	const sf::Texture openedCell1Texture{RESOURCES_DIR / OPENED_CELL_1_FILE};
+	const sf::Texture openedCell2Texture{RESOURCES_DIR / OPENED_CELL_2_FILE};
+	const sf::Texture openedCell3Texture{RESOURCES_DIR / OPENED_CELL_3_FILE};
+	const sf::Texture openedCell4Texture{RESOURCES_DIR / OPENED_CELL_4_FILE};
+	const sf::Texture openedCell5Texture{RESOURCES_DIR / OPENED_CELL_5_FILE};
+	const sf::Texture openedCell6Texture{RESOURCES_DIR / OPENED_CELL_6_FILE};
+	const sf::Texture openedCell7Texture{RESOURCES_DIR / OPENED_CELL_7_FILE};
+	const sf::Texture openedCell8Texture{RESOURCES_DIR / OPENED_CELL_8_FILE};
+	const sf::Texture openedCellClickedMineTexture{RESOURCES_DIR / OPENED_CELL_CLICKED_MINE_FILE};
+	const sf::Texture openedCellRunningMineTexture{RESOURCES_DIR / OPENED_CELL_RUNNING_MINE_FILE};
+	const sf::Texture openedCellNoMineTexture{RESOURCES_DIR / OPENED_CELL_NO_MINE_FILE};
+	const sf::Texture openedCellMineTexture{RESOURCES_DIR / OPENED_CELL_MINE_FILE};
 
 	sf::Sprite unopenedCellSprite{unopenedCellTexture};
 	sf::Sprite unopenedSelectedCellSprite{unopenedSelectedCellTexture};
-	sf::Sprite flaggedCellSprite{flaggedCellTexture};
+	sf::Sprite unopenedFlaggedCellSprite{unopenedFlaggedCellTexture};
 	sf::Sprite openedCell0Sprite{openedCell0Texture};
 	sf::Sprite openedCell1Sprite{openedCell1Texture};
 	sf::Sprite openedCell2Sprite{openedCell2Texture};
@@ -70,49 +171,15 @@ int main()
 	sf::Sprite openedCellNoMineSprite{openedCellNoMineTexture};
 	sf::Sprite openedCellMineSprite{openedCellMineTexture};
 
-	std::size_t boardWidth = 9;
+	std::size_t boardWidth = 16;
 	std::size_t boardHeight = 9;
-	std::size_t minedCellsCount = 10;
+	std::size_t minedCellsCount = 20;
 	std::size_t cellSize = 64;
 
-	std::vector<Cell> board(boardWidth * boardHeight, Cell{});
-	sf::IntRect boardRect = {sf::Vector2i{}, sf::Vector2i(sf::Vector2{boardWidth * cellSize, boardHeight * cellSize})};
+	Board board(boardWidth, boardHeight);
+	board.addMines(minedCellsCount);
 
-	assert(board.size() > 0);
-	std::mt19937_64 gen(std::random_device{}());
-	std::uniform_int_distribution<std::size_t> dist(0, board.size() - 1);
-
-	for (std::size_t minesRemaining = minedCellsCount; minesRemaining > 0;)
-	{
-		const auto randIdx = dist(gen);
-		auto& randCell = board[randIdx];
-		if (randCell.mined)
-			continue;
-
-		randCell.mined = true;
-		--minesRemaining;
-
-		const auto row = randIdx / boardHeight;
-		const auto col = randIdx % boardHeight;
-
-		for (int dr = -1; dr <= 1; ++dr)
-		{
-			for (int dc = -1; dc <= 1; ++dc)
-			{
-				// coordinates are unsigned: underflow if (row + dr) < 0
-				const std::size_t nRow = row + dr;
-				const std::size_t nCol = col + dc;
-
-				if (nRow >= boardHeight || nCol >= boardWidth)
-					continue;
-
-				const auto neighborIdx = nRow * boardWidth + nCol;
-				board[neighborIdx].adjacentMines += 1;
-			}
-		}
-	}
-
-	Cell* pressedCell{};
+	std::size_t pressedCellIdx = -1;
 
 	while (window.isOpen())
 	{
@@ -132,35 +199,34 @@ int main()
 
 			else if (auto* data = event->getIf<sf::Event::MouseButtonPressed>())
 			{
-				if (boardRect.contains(data->position))
+				std::size_t col = data->position.x / cellSize;
+				std::size_t row = data->position.y / cellSize;
+				if (board.areCoordinatesValid(col, row))
 				{
-					std::size_t row = data->position.y / cellSize;
-					std::size_t col = data->position.x / cellSize;
-					pressedCell = &board[row * boardWidth + col];
+					pressedCellIdx = board.toIndex(col, row);
 				}
 			}
 
 			else if (auto* data = event->getIf<sf::Event::MouseButtonReleased>())
 			{
-				if (pressedCell && boardRect.contains(data->position))
+				std::size_t col = data->position.x / cellSize;
+				std::size_t row = data->position.y / cellSize;
+				if (board.areCoordinatesValid(col, row))
 				{
-					std::size_t row = data->position.y / cellSize;
-					std::size_t col = data->position.x / cellSize;
-
-					if (pressedCell == &board[row * boardWidth + col])
+					if (pressedCellIdx == board.toIndex(col, row))
 					{
 						switch (data->button)
 						{
 						case sf::Mouse::Button::Left:
-							pressedCell->open();
+							board.open(pressedCellIdx);
 							break;
 						case sf::Mouse::Button::Right:
-							pressedCell->flag();
+							board.flag(pressedCellIdx);
 							break;
 						}
 					}
 				}
-				pressedCell = nullptr;
+				pressedCellIdx = -1;
 			}
 		}
 
@@ -172,7 +238,7 @@ int main()
 			const auto y = row * cellSize;
 			for (std::size_t col = 0; col < boardWidth; ++col, ++idx)
 			{
-				const auto& cell = board[idx];
+				const auto& cell = board.cells[idx];
 				const auto x = col * cellSize;
 				const sf::Vector2f position = sf::Vector2f(sf::Vector2{x, y});
 
@@ -187,13 +253,13 @@ int main()
 
 				if (cell.flagged)
 				{
-					drawSprite(flaggedCellSprite);
+					drawSprite(unopenedFlaggedCellSprite);
 					continue;
 				}
 
 				if (!cell.opened)
 				{
-					if (&cell == pressedCell)
+					if (pressedCellIdx == idx)
 						drawSprite(unopenedSelectedCellSprite);
 					else
 						drawSprite(unopenedCellSprite);
