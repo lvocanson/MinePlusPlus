@@ -13,7 +13,7 @@ FetchContent_Declare(SFML
 )
 FetchContent_MakeAvailable(SFML)
 
-add_executable (MinePlusPlus "src/MinePlusPlus.cpp" )
+add_executable (MinePlusPlus "src/MinePlusPlus.cpp"  "src/Board.h"  "src/Board.cpp")
 
 set_property(TARGET MinePlusPlus PROPERTY CXX_STANDARD 20)
 
