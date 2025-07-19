@@ -75,12 +75,11 @@ int main()
 	const sf::Texture openedCellNoMineTexture{RESOURCES_DIR / OPENED_CELL_NO_MINE_FILE};
 	const sf::Texture openedCellMineTexture{RESOURCES_DIR / OPENED_CELL_MINE_FILE};
 
-	std::size_t boardWidth = 16;
-	std::size_t boardHeight = 9;
+	Vec2s boardSize = {16, 9};
 	std::size_t minedCellsCount = 20;
 
-	Board board(boardWidth, boardHeight);
-	board.addMines(minedCellsCount);
+	Board board;
+	board.resize(boardSize);
 
 	std::size_t pressedCellIdx = -1;
 
@@ -103,26 +102,34 @@ int main()
 			else if (auto* data = event->getIf<sf::Event::MouseButtonPressed>())
 			{
 				auto coords = window.mapPixelToCoords(data->position, window.getView());
-				std::size_t col = std::size_t(coords.x / TEXTURES_SIZE);
-				std::size_t row = std::size_t(coords.y / TEXTURES_SIZE);
-				if (board.areCoordinatesValid(col, row))
+				Vec2s coo
 				{
-					pressedCellIdx = board.toIndex(col, row);
+					.x = std::size_t(coords.x / TEXTURES_SIZE),
+					.y = std::size_t(coords.y / TEXTURES_SIZE)
+				};
+				if (board.areCoordinatesValid(coo))
+				{
+					pressedCellIdx = board.toIndex(coo);
 				}
 			}
 
 			else if (auto* data = event->getIf<sf::Event::MouseButtonReleased>())
 			{
 				auto coords = window.mapPixelToCoords(data->position, window.getView());
-				std::size_t col = std::size_t(coords.x / TEXTURES_SIZE);
-				std::size_t row = std::size_t(coords.y / TEXTURES_SIZE);
-				if (board.areCoordinatesValid(col, row))
+				Vec2s coo
 				{
-					if (pressedCellIdx == board.toIndex(col, row))
+					.x = std::size_t(coords.x / TEXTURES_SIZE),
+					.y = std::size_t(coords.y / TEXTURES_SIZE)
+				};
+				if (board.areCoordinatesValid(coo))
+				{
+					if (pressedCellIdx == board.toIndex(coo))
 					{
 						switch (data->button)
 						{
 						case sf::Mouse::Button::Left:
+							if (board.getMineCount() == 0)
+								board.placeMines(minedCellsCount, pressedCellIdx);
 							board.open(pressedCellIdx);
 							break;
 						case sf::Mouse::Button::Right:
@@ -133,15 +140,21 @@ int main()
 				}
 				pressedCellIdx = -1;
 			}
+
+			else if (auto* data = event->getIf<sf::Event::KeyPressed>())
+			{
+				if (data->code == sf::Keyboard::Key::Escape)
+					board.clear();
+			}
 		}
 
 		window.clear();
 
-		for (std::size_t row = 0, idx = 0; row < boardHeight; ++row)
+		for (std::size_t row = 0, idx = 0; row < boardSize.y; ++row)
 		{
-			for (std::size_t col = 0; col < boardWidth; ++col, ++idx)
+			for (std::size_t col = 0; col < boardSize.x; ++col, ++idx)
 			{
-				const auto& cell = board.cells[idx];
+				auto& cell = board.getCellAt(idx);
 				const sf::Vector2f position = sf::Vector2f(sf::Vector2{col, row} *TEXTURES_SIZE);
 
 				if (cell.flagged)
@@ -161,7 +174,7 @@ int main()
 
 				if (cell.mined)
 				{
-					drawTexture(window, openedCellMineTexture, position);
+					drawTexture(window, openedCellClickedMineTexture, position);
 					continue;
 				}
 
