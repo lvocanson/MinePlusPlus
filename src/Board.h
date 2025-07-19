@@ -73,11 +73,6 @@ public:
 
 private:
 
-	static constexpr double DENSITY_TRESHOLD = 0.4;
-	void placeMines_LowDensity(std::size_t count, std::size_t safeIndex);
-	void placeMines_HighDensity(std::size_t count, std::size_t safeIndex);
-
-
 	Vec2s size_;
 	std::size_t mineCount_, flagCount_;
 	std::vector<Cell> cells_;

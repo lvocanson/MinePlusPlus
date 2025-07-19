@@ -1,7 +1,6 @@
 #include "Board.h"
 #include <algorithm>
 #include <cassert>
-#include <numeric>
 #include <random>
 
 Board::Board()
@@ -24,12 +23,38 @@ void Board::placeMines(std::size_t count, std::size_t safeIndex)
 	if (mineCount_ > 0)
 		clear();
 
-	static_assert(0 <= DENSITY_TRESHOLD && DENSITY_TRESHOLD <= 1);
-	if (count < getMaxNumberOfMines() * DENSITY_TRESHOLD)
-		placeMines_LowDensity(count, safeIndex);
-	else
-		placeMines_HighDensity(count, safeIndex);
+	struct It
+	{
+		using value_type = std::size_t;
+		using difference_type = std::ptrdiff_t;
+		using iterator_category = std::input_iterator_tag;
+		using pointer = const std::size_t*;
+		using reference = std::size_t;
+		
+		value_type value;
+		value_type forbidden;
 
+
+		It& operator++() { if (++value == forbidden) ++value; return *this; }
+		bool operator==(const It& other) const = default;
+		value_type operator*() const { return value; }
+	};
+
+	std::vector<std::size_t> randIndices(count);
+	{
+		std::mt19937_64 gen(std::random_device{}());
+		It first{0, safeIndex}, last{cells_.size(), safeIndex};
+		std::sample(first, last, randIndices.begin(), count, gen);
+	}
+
+	for (std::size_t index : randIndices)
+	{
+		cells_[index].mined = true;
+		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
+		{
+			++cells_[toIndex(coordinates)].adjacentMines;
+		}
+	}
 	mineCount_ = count;
 }
 
@@ -125,53 +150,6 @@ void Board::flag(std::size_t index)
 	auto& cell = cells_[index];
 	if (!cell.opened)
 		cell.flagged ^= true;
-}
-
-void Board::placeMines_LowDensity(std::size_t count, std::size_t safeIndex)
-{
-	// This method does not allocate but can lead to collision, faster in cases of low density
-
-	std::mt19937_64 gen(std::random_device{}());
-	std::uniform_int_distribution<std::size_t> dist(0, cells_.size() - 1);
-
-	for (std::size_t minesRemaining = count; minesRemaining > 0;)
-	{
-		const auto randIdx = dist(gen);
-		auto& randCell = cells_[randIdx];
-		if (randCell.mined)
-			continue;
-
-		randCell.mined = true;
-		for (auto coordinates : getNeigboursOf(toCoordinates(randIdx)))
-		{
-			++cells_[toIndex(coordinates)].adjacentMines;
-		}
-		--minesRemaining;
-	}
-}
-
-void Board::placeMines_HighDensity(std::size_t count, std::size_t safeIndex)
-{
-	// This method guarantees no collisions but allocates a huge array, faster in cases of high density
-
-	std::vector<std::size_t> indices(cells_.size() - 1);
-	std::iota(indices.begin(), indices.begin() + safeIndex, 0);
-	std::iota(indices.begin() + safeIndex, indices.end(), safeIndex + 1);
-
-	std::vector<std::size_t> randIndices(count);
-	{
-		std::mt19937_64 gen(std::random_device{}());
-		std::ranges::sample(indices, randIndices.begin(), count, gen);
-	}
-
-	for (std::size_t index : randIndices)
-	{
-		cells_[index].mined = true;
-		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
-		{
-			++cells_[toIndex(coordinates)].adjacentMines;
-		}
-	}
 }
 
 NeighbourRange::NeighbourRange(const Board& board, const Vec2s& coordinates)
