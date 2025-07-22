@@ -5,7 +5,7 @@
 
 Board::Board()
 	: size_{}
-	, mineCount_{}, flagCount_{}
+	, mineCount_{}, flagCount_{}, openCount_{}
 	, cells_{}
 {
 }
@@ -60,7 +60,7 @@ void Board::placeMines(std::size_t count, std::size_t safeIndex)
 
 void Board::clear()
 {
-	mineCount_ = flagCount_ = 0;
+	mineCount_ = flagCount_ = openCount_ = 0;
 	cells_.assign(size_.x * size_.y, {});
 }
 
@@ -129,8 +129,21 @@ void Board::open(std::size_t index)
 		cellIndices.pop_back();
 
 		auto& cell = cells_[index];
+		if (cell.opened) [[likely]]
+		{
+			continue;
+		}
+
 		cell.opened = true;
+		if (cell.mined) [[unlikely]]
+		{
+			setLost();
+			return;
+		}
+
+		flagCount_ -= cell.flagged;
 		cell.flagged = false;
+		++openCount_;
 
 		if (cell.adjacentMines == 0)
 		{
@@ -149,7 +162,7 @@ void Board::flag(std::size_t index)
 	assert(isIndexValid(index));
 	auto& cell = cells_[index];
 	if (!cell.opened)
-		cell.flagged ^= true;
+		flagCount_ += std::size_t(cell.flagged ^= true) * 2 - 1;
 }
 
 NeighbourRange::NeighbourRange(const Board& board, const Vec2s& coordinates)

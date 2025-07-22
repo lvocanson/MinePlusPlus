@@ -66,6 +66,10 @@ public:
 
 	void open(std::size_t index);
 	void flag(std::size_t index);
+	std::size_t getFlagCount() const { return flagCount_; }
+
+	bool isWon() const { return openCount_ == cells_.size() - mineCount_; }
+	bool isLost() const { return openCount_ == std::size_t(-1); }
 
 	const Cell& getCellAt(std::size_t index) const { return cells_[index]; }
 	const std::vector<Cell>& getCells() const { return cells_; }
@@ -73,7 +77,9 @@ public:
 
 private:
 
+	void setLost() { openCount_ = -1; }
+
 	Vec2s size_;
-	std::size_t mineCount_, flagCount_;
+	std::size_t mineCount_, flagCount_, openCount_;
 	std::vector<Cell> cells_;
 };

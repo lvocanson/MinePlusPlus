@@ -20,6 +20,8 @@ constexpr auto OPENED_CELL_RUNNING_MINE_FILE = "opened-cell-running-mine.png";
 constexpr auto OPENED_CELL_NO_MINE_FILE = "opened-cell-no-mine.png";
 constexpr auto OPENED_CELL_MINE_FILE = "opened-cell-mine.png";
 constexpr std::size_t TEXTURES_SIZE = 64;
+constexpr auto FONT_FILE = "roboto-v48-latin-regular.ttf";
+constexpr unsigned FONT_SIZE = 20;
 
 
 void drawTexture(sf::RenderTarget& target, const sf::Texture& texture, sf::Vector2f position)
@@ -53,6 +55,18 @@ void drawTexture(sf::RenderTarget& target, const sf::Texture& texture, sf::Vecto
 	target.draw(quad, 4, sf::PrimitiveType::TriangleFan, states);
 };
 
+void setStringAndKeepOrigin(sf::Text& text, const sf::String& string)
+{
+	auto oldSize = text.getLocalBounds().size;
+	auto origin = text.getOrigin();
+	text.setString(string);
+
+	auto newSize = text.getLocalBounds().size;
+	if (oldSize.x) origin *= newSize.x / oldSize.x;
+	if (oldSize.y) origin *= newSize.y / oldSize.y;
+	text.setOrigin(origin);
+}
+
 int main()
 {
 	auto window = sf::RenderWindow(sf::VideoMode({900u, 600u}), "Mine++");
@@ -80,7 +94,34 @@ int main()
 
 	Board board;
 	board.resize(boardSize);
+	sf::Vector2 windowSize = {float(boardSize.x * TEXTURES_SIZE), float(boardSize.y * TEXTURES_SIZE + FONT_SIZE)};
+	{
+		sf::View view = window.getView();
+		view.setSize(windowSize);
+		view.setCenter(windowSize / 2.f);
+		window.setView(view);
+	}
+	window.setSize(sf::Vector2u(windowSize + sf::Vector2{8.f, 8.f}));
 
+	sf::Font font(RESOURCES_DIR / FONT_FILE);
+	sf::Text left(font);
+	left.setCharacterSize(FONT_SIZE);
+	left.setFillColor(sf::Color::White);
+	left.setOutlineColor(sf::Color::Black);
+	left.setOutlineThickness(1.f);
+	sf::Text center(left), right(left);
+	left.setString("LEFT!");
+	center.setString("CENTER!");
+	right.setString("RIGHT!");
+	center.setOrigin({center.getLocalBounds().size.x / 2.f, 0.f});
+	right.setOrigin({right.getLocalBounds().size.x, 0.f});
+	left.setPosition({0.f, windowSize.y - FONT_SIZE});
+	center.setPosition({windowSize.x * .5f, windowSize.y - FONT_SIZE});
+	right.setPosition({windowSize.x, windowSize.y - FONT_SIZE});
+
+	sf::Clock clock; clock.stop();
+	float bestTime = std::numeric_limits<float>::signaling_NaN();
+	
 	std::size_t pressedCellIdx = -1;
 
 	while (window.isOpen())
@@ -129,7 +170,10 @@ int main()
 						{
 						case sf::Mouse::Button::Left:
 							if (board.getMineCount() == 0)
+							{
 								board.placeMines(minedCellsCount, pressedCellIdx);
+								clock.restart();
+							}
 							board.open(pressedCellIdx);
 							break;
 						case sf::Mouse::Button::Right:
@@ -144,7 +188,10 @@ int main()
 			else if (auto* data = event->getIf<sf::Event::KeyPressed>())
 			{
 				if (data->code == sf::Keyboard::Key::Escape)
+				{
 					board.clear();
+					clock.reset();
+				}
 			}
 		}
 
@@ -165,7 +212,9 @@ int main()
 
 				if (!cell.opened)
 				{
-					if (pressedCellIdx == idx)
+					if (board.isLost() && cell.mined)
+						drawTexture(window, openedCellMineTexture, position);
+					else if (pressedCellIdx == idx)
 						drawTexture(window, unopenedSelectedCellTexture, position);
 					else
 						drawTexture(window, unopenedCellTexture, position);
@@ -195,6 +244,22 @@ int main()
 				assert(false);
 			}
 		}
+
+		setStringAndKeepOrigin(left, std::format("Mines left: {}/{}", board.getFlagCount(), minedCellsCount));
+		if (board.isWon())
+		{
+			clock.stop();
+			setStringAndKeepOrigin(center, std::format("VICTORY! {:.3f}", clock.getElapsedTime().asSeconds()));
+		}
+		else if (board.isLost())
+			setStringAndKeepOrigin(center, std::format("LOST!"));
+		else
+			setStringAndKeepOrigin(center, std::format("{}", clock.getElapsedTime().asMilliseconds() / 1000));
+		setStringAndKeepOrigin(right, std::format("Best: {:.3f}", bestTime));
+
+		window.draw(left);
+		window.draw(center);
+		window.draw(right);
 
 		window.display();
 	}
