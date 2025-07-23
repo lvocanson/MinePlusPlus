@@ -27,7 +27,7 @@
             },
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Od",
+                "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Od /MD",
                 "CMAKE_EXE_LINKER_FLAGS_DEBUG": "/DEBUG"
             }
         },
@@ -49,7 +49,7 @@
             },
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Od",
+                "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Od /MD",
                 "CMAKE_EXE_LINKER_FLAGS_DEBUG": "/DEBUG"
             }
         },
