@@ -1,51 +1,25 @@
-﻿#include "Board.h"
-#include <SFML/Graphics.hpp>
-#include <cassert>
+﻿#include <SFML/Graphics.hpp>
 
-const std::filesystem::path RESOURCES_DIR = "res";
-constexpr auto UNOPENED_CELL_FILE = "unopened-cell.png";
-constexpr auto UNOPENED_SELECTED_CELL_FILE = "unopened-selected-cell.png";
-constexpr auto UNOPENED_FLAGGED_CELL_FILE = "unopened-flagged-cell.png";
-constexpr auto OPENED_CELL_0_FILE = "opened-cell-0.png";
-constexpr auto OPENED_CELL_1_FILE = "opened-cell-1.png";
-constexpr auto OPENED_CELL_2_FILE = "opened-cell-2.png";
-constexpr auto OPENED_CELL_3_FILE = "opened-cell-3.png";
-constexpr auto OPENED_CELL_4_FILE = "opened-cell-4.png";
-constexpr auto OPENED_CELL_5_FILE = "opened-cell-5.png";
-constexpr auto OPENED_CELL_6_FILE = "opened-cell-6.png";
-constexpr auto OPENED_CELL_7_FILE = "opened-cell-7.png";
-constexpr auto OPENED_CELL_8_FILE = "opened-cell-8.png";
-constexpr auto OPENED_CELL_CLICKED_MINE_FILE = "opened-cell-clicked-mine.png";
-constexpr auto OPENED_CELL_RUNNING_MINE_FILE = "opened-cell-running-mine.png";
-constexpr auto OPENED_CELL_NO_MINE_FILE = "opened-cell-no-mine.png";
-constexpr auto OPENED_CELL_MINE_FILE = "opened-cell-mine.png";
-constexpr std::size_t TEXTURES_SIZE = 64;
-constexpr auto FONT_FILE = "roboto-v48-latin-regular.ttf";
-constexpr unsigned FONT_SIZE = 20;
-
-
-void drawTexture(sf::RenderTarget& target, const sf::Texture& texture, sf::Vector2f position)
+void drawTexture(sf::RenderTarget& target, const sf::Texture& texture, const sf::FloatRect& rect)
 {
-	assert(sf::Vector2<std::size_t>(texture.getSize()) == sf::Vector2(TEXTURES_SIZE, TEXTURES_SIZE));
-
-	constexpr float size = TEXTURES_SIZE;
-	sf::Vertex quad[] =
+	sf::Vector2f texSize{texture.getSize()};
+	sf::Vertex quad[4] =
 	{
 		{
-			.position = position,
-			.texCoords = {0, 0}
+			.position = rect.position,
+			.texCoords = {0.f, 0.f}
 		},
 		{
-			.position = position + sf::Vector2f(size, 0),
-			.texCoords = {size, 0}
+			.position = rect.position + sf::Vector2f(rect.size.x, 0.f),
+			.texCoords = {texSize.x, 0.f}
 		},
 		{
-			.position = position + sf::Vector2f(size, size),
-			.texCoords = {size, size}
+			.position = rect.position + rect.size,
+			.texCoords = texSize
 		},
 		{
-			.position = position + sf::Vector2f(0, size),
-			.texCoords = {0, size}
+			.position = rect.position + sf::Vector2f(0, rect.size.y),
+			.texCoords = {0, texSize.y}
 		}
 	};
 
@@ -67,62 +41,177 @@ void setStringAndKeepOrigin(sf::Text& text, const sf::String& string)
 	text.setOrigin(origin);
 }
 
+#include "Board.h"
+#include "Resources.h"
+
+class GameScene
+{
+	static constexpr auto& FONT_REF = Resources::Fonts::roboto;
+	static constexpr auto DEFAULT_STRING = "Empty text";
+	static constexpr unsigned FONT_SIZE = 20;
+
+public:
+
+	GameScene(Vec2s size, std::size_t mineCount)
+		: left_(FONT_REF)
+		, center_(FONT_REF)
+		, right_(FONT_REF)
+		, mineCount_(mineCount)
+		, pressedCellIdx_(-1)
+	{
+		board_.resize(size);
+		clock_.reset();
+
+		float bestTime = std::numeric_limits<float>::signaling_NaN();
+
+		left_.setString(std::format("Mines left: 0/{}", mineCount));
+		left_.setCharacterSize(FONT_SIZE);
+		left_.setFillColor(sf::Color::White);
+		left_.setOutlineColor(sf::Color::Black);
+		left_.setOutlineThickness(1.f);
+		left_.setOrigin({0.f, -1.f});
+
+		center_ = left_;
+		center_.setString("0");
+		center_.setOrigin({center_.getLocalBounds().size.x / 2.f, -1.f});
+
+		right_ = left_;
+		right_.setString(std::format("Best: {:.3f}", bestTime));
+		right_.setOrigin({right_.getLocalBounds().size.x, -1.f});
+	}
+
+	void onWindowResize(sf::Vector2u size)
+	{
+		sf::Vector2f boardArea{size};
+		boardArea.y -= 2 + FONT_SIZE;
+		auto [w, h] = board_.getSize();
+		auto [x, y] = boardArea.componentWiseDiv({float(w), float(h)});
+		float min = std::min(x, y);
+
+		boardArea = {min * w, min * h};
+		cellSize_ = {min, min};
+
+		left_.setPosition({0.f, boardArea.y});
+		center_.setPosition({boardArea.x / 2.f, boardArea.y});
+		right_.setPosition(boardArea);
+	}
+
+	void onMouseButtonPressed(sf::Vector2f coordinates, sf::Mouse::Button button)
+	{
+		auto [x, y] = coordinates.componentWiseDiv(cellSize_);
+		Vec2s coo = {std::size_t(x), std::size_t(y)};
+		if (board_.areCoordinatesValid(coo))
+		{
+			pressedCellIdx_ = board_.toIndex(coo);
+		}
+	}
+
+	void onMouseButtonReleased(sf::Vector2f coordinates, sf::Mouse::Button button)
+	{
+		auto [x, y] = coordinates.componentWiseDiv(cellSize_);
+		Vec2s coo = {std::size_t(x), std::size_t(y)};
+		if (board_.areCoordinatesValid(coo))
+		{
+			if (pressedCellIdx_ == board_.toIndex(coo))
+			{
+				switch (button)
+				{
+				case sf::Mouse::Button::Left:
+					if (board_.getMineCount() == 0)
+					{
+						board_.placeMines(mineCount_, pressedCellIdx_);
+						clock_.restart();
+					}
+					board_.open(pressedCellIdx_);
+					break;
+				case sf::Mouse::Button::Right:
+					board_.flag(pressedCellIdx_);
+					setStringAndKeepOrigin(left_, std::format("Mines left: {}/{}", board_.getFlagCount(), mineCount_));
+					break;
+				}
+			}
+		}
+		pressedCellIdx_ = -1;
+	}
+
+	void onKeyPressed(sf::Keyboard::Key code)
+	{
+		if (code == sf::Keyboard::Key::Escape)
+		{
+			board_.clear();
+			clock_.reset();
+		}
+	}
+
+	void drawOn(sf::RenderTarget& rt) const
+	{
+		for (std::size_t index = 0; index < board_.getCells().size(); ++index)
+		{
+			const sf::Texture* texture = nullptr;
+			auto& cell = board_.getCellAt(index);
+
+			if (cell.flagged)
+			{
+				texture = &Resources::Textures::unopenedFlaggedCell;
+			}
+
+			else if (!cell.opened)
+			{
+				if (board_.isLost() && cell.mined) texture = &Resources::Textures::openedCellMine;
+				else if (pressedCellIdx_ == index) texture = &Resources::Textures::unopenedSelectedCell;
+				else                               texture = &Resources::Textures::unopenedCell;
+			}
+
+			else if (cell.mined)
+			{
+				texture = &Resources::Textures::openedCellClickedMine;
+			}
+
+			else switch (cell.adjacentMines)
+			{
+			case 0: texture = &Resources::Textures::openedCell0; break;
+			case 1: texture = &Resources::Textures::openedCell1; break;
+			case 2: texture = &Resources::Textures::openedCell2; break;
+			case 3: texture = &Resources::Textures::openedCell3; break;
+			case 4: texture = &Resources::Textures::openedCell4; break;
+			case 5: texture = &Resources::Textures::openedCell5; break;
+			case 6: texture = &Resources::Textures::openedCell6; break;
+			case 7: texture = &Resources::Textures::openedCell7; break;
+			case 8: texture = &Resources::Textures::openedCell8; break;
+			}
+
+			assert(texture);
+
+			auto [x, y] = board_.toCoordinates(index);
+			const sf::FloatRect rect{cellSize_.componentWiseMul({float(x), float(y)}), cellSize_};
+			drawTexture(rt, *texture, rect);
+		}
+
+		setStringAndKeepOrigin(const_cast<sf::Text&>(left_), std::format("Mines left: {}/{}", board_.getFlagCount(), mineCount_));
+		setStringAndKeepOrigin(const_cast<sf::Text&>(center_), std::format("{}", clock_.getElapsedTime().asMilliseconds() / 1000));
+
+		rt.draw(left_);
+		rt.draw(center_);
+		rt.draw(right_);
+	}
+
+	Board board_;
+	sf::Vector2f cellSize_;
+	sf::Clock clock_;
+	sf::Text left_, center_, right_;
+	std::size_t mineCount_, pressedCellIdx_;
+};
+
 int main()
 {
 	auto window = sf::RenderWindow(sf::VideoMode({900u, 600u}), "Mine++");
 	window.setVerticalSyncEnabled(true);
 
-	const sf::Texture unopenedCellTexture{RESOURCES_DIR / UNOPENED_CELL_FILE};
-	const sf::Texture unopenedSelectedCellTexture{RESOURCES_DIR / UNOPENED_SELECTED_CELL_FILE};
-	const sf::Texture unopenedFlaggedCellTexture{RESOURCES_DIR / UNOPENED_FLAGGED_CELL_FILE};
-	const sf::Texture openedCell0Texture{RESOURCES_DIR / OPENED_CELL_0_FILE};
-	const sf::Texture openedCell1Texture{RESOURCES_DIR / OPENED_CELL_1_FILE};
-	const sf::Texture openedCell2Texture{RESOURCES_DIR / OPENED_CELL_2_FILE};
-	const sf::Texture openedCell3Texture{RESOURCES_DIR / OPENED_CELL_3_FILE};
-	const sf::Texture openedCell4Texture{RESOURCES_DIR / OPENED_CELL_4_FILE};
-	const sf::Texture openedCell5Texture{RESOURCES_DIR / OPENED_CELL_5_FILE};
-	const sf::Texture openedCell6Texture{RESOURCES_DIR / OPENED_CELL_6_FILE};
-	const sf::Texture openedCell7Texture{RESOURCES_DIR / OPENED_CELL_7_FILE};
-	const sf::Texture openedCell8Texture{RESOURCES_DIR / OPENED_CELL_8_FILE};
-	const sf::Texture openedCellClickedMineTexture{RESOURCES_DIR / OPENED_CELL_CLICKED_MINE_FILE};
-	const sf::Texture openedCellRunningMineTexture{RESOURCES_DIR / OPENED_CELL_RUNNING_MINE_FILE};
-	const sf::Texture openedCellNoMineTexture{RESOURCES_DIR / OPENED_CELL_NO_MINE_FILE};
-	const sf::Texture openedCellMineTexture{RESOURCES_DIR / OPENED_CELL_MINE_FILE};
-
 	Vec2s boardSize = {16, 9};
 	std::size_t minedCellsCount = 20;
 
-	Board board;
-	board.resize(boardSize);
-	sf::Vector2 windowSize = {float(boardSize.x * TEXTURES_SIZE), float(boardSize.y * TEXTURES_SIZE + FONT_SIZE)};
-	{
-		sf::View view = window.getView();
-		view.setSize(windowSize);
-		view.setCenter(windowSize / 2.f);
-		window.setView(view);
-	}
-	window.setSize(sf::Vector2u(windowSize + sf::Vector2{8.f, 8.f}));
-
-	sf::Font font(RESOURCES_DIR / FONT_FILE);
-	sf::Text left(font);
-	left.setCharacterSize(FONT_SIZE);
-	left.setFillColor(sf::Color::White);
-	left.setOutlineColor(sf::Color::Black);
-	left.setOutlineThickness(1.f);
-	sf::Text center(left), right(left);
-	left.setString("LEFT!");
-	center.setString("CENTER!");
-	right.setString("RIGHT!");
-	center.setOrigin({center.getLocalBounds().size.x / 2.f, 0.f});
-	right.setOrigin({right.getLocalBounds().size.x, 0.f});
-	left.setPosition({0.f, windowSize.y - FONT_SIZE});
-	center.setPosition({windowSize.x * .5f, windowSize.y - FONT_SIZE});
-	right.setPosition({windowSize.x, windowSize.y - FONT_SIZE});
-
-	sf::Clock clock; clock.stop();
-	float bestTime = std::numeric_limits<float>::signaling_NaN();
-	
-	std::size_t pressedCellIdx = -1;
+	GameScene game(boardSize, minedCellsCount);
+	game.onWindowResize(window.getSize());
 
 	while (window.isOpen())
 	{
@@ -136,131 +225,34 @@ int main()
 			else if (auto* data = event->getIf<sf::Event::Resized>())
 			{
 				sf::View view = window.getView();
-				view.setSize(sf::Vector2f(data->size));
+				sf::Vector2f size(data->size);
+				view.setSize(size);
+				view.setCenter(size / 2.f);
 				window.setView(view);
+
+				game.onWindowResize(data->size);
 			}
 
 			else if (auto* data = event->getIf<sf::Event::MouseButtonPressed>())
 			{
 				auto coords = window.mapPixelToCoords(data->position, window.getView());
-				Vec2s coo
-				{
-					.x = std::size_t(coords.x / TEXTURES_SIZE),
-					.y = std::size_t(coords.y / TEXTURES_SIZE)
-				};
-				if (board.areCoordinatesValid(coo))
-				{
-					pressedCellIdx = board.toIndex(coo);
-				}
+				game.onMouseButtonPressed(coords, data->button);
 			}
 
 			else if (auto* data = event->getIf<sf::Event::MouseButtonReleased>())
 			{
 				auto coords = window.mapPixelToCoords(data->position, window.getView());
-				Vec2s coo
-				{
-					.x = std::size_t(coords.x / TEXTURES_SIZE),
-					.y = std::size_t(coords.y / TEXTURES_SIZE)
-				};
-				if (board.areCoordinatesValid(coo))
-				{
-					if (pressedCellIdx == board.toIndex(coo))
-					{
-						switch (data->button)
-						{
-						case sf::Mouse::Button::Left:
-							if (board.getMineCount() == 0)
-							{
-								board.placeMines(minedCellsCount, pressedCellIdx);
-								clock.restart();
-							}
-							board.open(pressedCellIdx);
-							break;
-						case sf::Mouse::Button::Right:
-							board.flag(pressedCellIdx);
-							break;
-						}
-					}
-				}
-				pressedCellIdx = -1;
+				game.onMouseButtonReleased(coords, data->button);
 			}
 
 			else if (auto* data = event->getIf<sf::Event::KeyPressed>())
 			{
-				if (data->code == sf::Keyboard::Key::Escape)
-				{
-					board.clear();
-					clock.reset();
-				}
+				game.onKeyPressed(data->code);
 			}
 		}
 
 		window.clear();
-
-		for (std::size_t row = 0, idx = 0; row < boardSize.y; ++row)
-		{
-			for (std::size_t col = 0; col < boardSize.x; ++col, ++idx)
-			{
-				auto& cell = board.getCellAt(idx);
-				const sf::Vector2f position = sf::Vector2f(sf::Vector2{col, row} *TEXTURES_SIZE);
-
-				if (cell.flagged)
-				{
-					drawTexture(window, unopenedFlaggedCellTexture, position);
-					continue;
-				}
-
-				if (!cell.opened)
-				{
-					if (board.isLost() && cell.mined)
-						drawTexture(window, openedCellMineTexture, position);
-					else if (pressedCellIdx == idx)
-						drawTexture(window, unopenedSelectedCellTexture, position);
-					else
-						drawTexture(window, unopenedCellTexture, position);
-					continue;
-				}
-
-				if (cell.mined)
-				{
-					drawTexture(window, openedCellClickedMineTexture, position);
-					continue;
-				}
-
-				switch (cell.adjacentMines)
-				{
-				case 0: drawTexture(window, openedCell0Texture, position); continue;
-				case 1: drawTexture(window, openedCell1Texture, position); continue;
-				case 2: drawTexture(window, openedCell2Texture, position); continue;
-				case 3: drawTexture(window, openedCell3Texture, position); continue;
-				case 4: drawTexture(window, openedCell4Texture, position); continue;
-				case 5: drawTexture(window, openedCell5Texture, position); continue;
-				case 6: drawTexture(window, openedCell6Texture, position); continue;
-				case 7: drawTexture(window, openedCell7Texture, position); continue;
-				case 8: drawTexture(window, openedCell8Texture, position); continue;
-				}
-
-				// Invalid nb of adjacent mines
-				assert(false);
-			}
-		}
-
-		setStringAndKeepOrigin(left, std::format("Mines left: {}/{}", board.getFlagCount(), minedCellsCount));
-		if (board.isWon())
-		{
-			clock.stop();
-			setStringAndKeepOrigin(center, std::format("VICTORY! {:.3f}", clock.getElapsedTime().asSeconds()));
-		}
-		else if (board.isLost())
-			setStringAndKeepOrigin(center, std::format("LOST!"));
-		else
-			setStringAndKeepOrigin(center, std::format("{}", clock.getElapsedTime().asMilliseconds() / 1000));
-		setStringAndKeepOrigin(right, std::format("Best: {:.3f}", bestTime));
-
-		window.draw(left);
-		window.draw(center);
-		window.draw(right);
-
+		game.drawOn(window);
 		window.display();
 	}
 }
