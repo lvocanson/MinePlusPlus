@@ -51,9 +51,9 @@ public:
 
 	Board();
 
+	bool isSizeValid(const Vec2s& size) const;
 	void resize(const Vec2s& size);
 	const Vec2s& getSize() const { return size_; }
-	bool hasValidSize() const { return cells_.size() > 1; }
 
 	bool areCoordinatesValid(const Vec2s& coordinates) const;
 	bool isIndexValid(std::size_t index) const;
@@ -63,6 +63,7 @@ public:
 	std::size_t getMaxNumberOfMines() const { return cells_.size() - 1; }
 	void setMineCount(std::size_t mineCount);
 	std::size_t getMineCount() const { return mineCount_; }
+
 	void placeMines();
 	void clear();
 
@@ -81,7 +82,7 @@ public:
 
 private:
 
-	bool open_single(Cell& cell);
+	bool openCell(Cell& cell);
 	void watch(std::size_t index);
 	std::size_t popLastWatched();
 
@@ -89,4 +90,10 @@ private:
 	std::size_t mineCount_, flagCount_, openCount_;
 	std::vector<Cell> cells_;
 	std::vector<std::size_t> watchedIndices_;
+
+public:
+
+	std::size_t noAdj = 0;
+	std::size_t initWatched = 0;
+	std::size_t maxWatched = 0;
 };

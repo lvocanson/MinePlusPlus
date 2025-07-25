@@ -222,13 +222,18 @@ public:
 	bool gameEnd_;
 };
 
+#include "Testing.h"
+
 int main()
 {
+	test();
+	return 0;
+
 	auto window = sf::RenderWindow(sf::VideoMode({900u, 600u}), "Mine++");
 	window.setVerticalSyncEnabled(true);
 
-	Vec2s boardSize = {16, 9};
-	std::size_t minedCellsCount = 20;
+	Vec2s boardSize = {16, 16};
+	std::size_t minedCellsCount = 40;
 
 	GameScene game(boardSize, minedCellsCount);
 	game.onWindowResize(window.getSize());

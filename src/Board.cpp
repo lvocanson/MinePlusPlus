@@ -10,11 +10,23 @@ Board::Board()
 {
 }
 
+bool Board::isSizeValid(const Vec2s& size) const
+{
+	if (size.x && size.y)
+		// check overflow
+		return size.x < std::numeric_limits<std::size_t>::max() / size.y
+		// and respect max_size
+		&& size.x * size.y < cells_.max_size();
+	return false;
+}
+
 void Board::resize(const Vec2s& size)
 {
+	assert(isSizeValid(size));
 	size_ = size;
 	clear();
 }
+
 
 bool Board::areCoordinatesValid(const Vec2s& coordinates) const
 {
@@ -45,22 +57,21 @@ Vec2s Board::toCoordinates(std::size_t index) const
 
 void Board::setMineCount(std::size_t mineCount)
 {
-	assert(mineCount > 0);
 	assert(mineCount <= getMaxNumberOfMines());
 	mineCount_ = mineCount;
 }
 
 void Board::placeMines()
 {
-	clear();
+	assert(isSizeValid(size_));
+
 
 	std::mt19937_64 gen(std::random_device{}());
-	std::size_t cellsWithoutAdjacentMines = cells_.size();
-
+	std::size_t noAdjCellCount = cells_.size();
 	for (std::size_t i = cells_.size() - mineCount_; i < cells_.size(); ++i)
 	{
-		std::uniform_int_distribution<std::size_t> dis(0, i);
-		std::size_t r = dis(gen);
+		std::uniform_int_distribution<std::size_t> dist(0, i);
+		std::size_t r = dist(gen);
 		std::size_t index = cells_[r].mined ? i : r;
 
 		assert(!cells_[index].mined);
@@ -69,13 +80,30 @@ void Board::placeMines()
 		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
 		{
 			if (++cells_[toIndex(coordinates)].adjacentMines == 1)
-				--cellsWithoutAdjacentMines;
+				--noAdjCellCount;
 		}
 	}
+
+	// 1 = square (more expensive), 0 = line (cheaper)
+	double shape = double(std::min(size_.x, size_.y)) / std::max(size_.x, size_.y);
+	double shapeCoef = .25, shapeBias = .5;
+	
+	// 1 = empty (more expensive), 0 = filled (no cost)
+	double density = double(noAdjCellCount) / cells_.size();
+	double densityCoef = .5, densityBias = .25;
+
+	double largestFloodFillSize = noAdjCellCount
+		* (shape * shapeCoef + shapeBias)
+		* (density * densityCoef + densityBias);
+
+	watchedIndices_.reserve(std::size_t(largestFloodFillSize) + 1);
+	noAdj = noAdjCellCount;
+	initWatched = watchedIndices_.capacity();
 }
 
 void Board::clear()
 {
+	assert(isSizeValid(size_));
 	flagCount_ = openCount_ = 0;
 	cells_.assign(size_.x * size_.y, {});
 	watchedIndices_.clear();
@@ -93,18 +121,29 @@ bool Board::open(std::size_t index)
 	{
 		// If re-opening a cell then open all neighbours, but only if the
 		// number of flagged neighbours match the number of adjacent mines.
-
 		std::size_t flaggedNeighbourCount = 0;
-		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
+		
+		auto neighbours = getNeigboursOf(toCoordinates(index));
+		for (auto coordinates : neighbours)
 		{
 			auto idx = toIndex(coordinates);
 			auto& c = cells_[idx];
 			if (c.flagged) ++flaggedNeighbourCount;
-			else if (!c.opened) watch(idx);
 		};
 
 		if (flaggedNeighbourCount != first.adjacentMines)
 			return false;
+
+		for (auto coordinates : neighbours)
+		{
+			auto idx = toIndex(coordinates);
+			auto& c = cells_[idx];
+			if (!c.opened && !c.flagged)
+			{
+				if (c.adjacentMines) openCell(c);
+				else watch(idx);
+			}
+		}
 	}
 	else
 	{
@@ -117,7 +156,7 @@ bool Board::open(std::size_t index)
 		index = popLastWatched();
 		auto& cell = cells_[index];
 
-		mineOpened |= open_single(cell);
+		mineOpened |= openCell(cell);
 		if (cell.adjacentMines)
 			continue;
 
@@ -127,7 +166,7 @@ bool Board::open(std::size_t index)
 			auto& c = cells_[idx];
 			if (!c.opened)
 			{
-				if (c.adjacentMines)open_single(c);
+				if (c.adjacentMines) openCell(c);
 				else watch(idx);
 			}
 		};
@@ -143,7 +182,7 @@ void Board::flag(std::size_t index)
 		flagCount_ += std::size_t(cell.flagged ^= true) * 2 - 1;
 }
 
-bool Board::open_single(Cell& cell)
+bool Board::openCell(Cell& cell)
 {
 	cell.opened = true;
 	flagCount_ -= cell.flagged;
@@ -164,6 +203,11 @@ void Board::watch(std::size_t index)
 
 std::size_t Board::popLastWatched()
 {
+	if (maxWatched < watchedIndices_.size())
+	{
+		maxWatched = watchedIndices_.size();
+	}
+
 	assert(!watchedIndices_.empty());
 	std::size_t index = watchedIndices_.back();
 	watchedIndices_.pop_back();
