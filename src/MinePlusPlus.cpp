@@ -56,10 +56,12 @@ public:
 		: left_(FONT_REF)
 		, center_(FONT_REF)
 		, right_(FONT_REF)
-		, mineCount_(mineCount)
 		, pressedCellIdx_(-1)
+		, gameEnd_(false)
 	{
 		board_.resize(size);
+		board_.setMineCount(mineCount);
+		board_.placeMines();
 		clock_.reset();
 
 		float bestTime = std::numeric_limits<float>::signaling_NaN();
@@ -117,16 +119,21 @@ public:
 				switch (button)
 				{
 				case sf::Mouse::Button::Left:
-					if (board_.getMineCount() == 0)
-					{
-						board_.placeMines(mineCount_, pressedCellIdx_);
-						clock_.restart();
-					}
-					board_.open(pressedCellIdx_);
+					if (!board_.open(pressedCellIdx_))
+						break;
+
+					gameEnd_ = true;
+					clock_.stop();
+
+					if (board_.isWon())
+						setStringAndKeepOrigin(center_, std::format("VICTORY! {:.3f}", clock_.getElapsedTime().asSeconds()));
+					else
+						setStringAndKeepOrigin(center_, std::format("LOST!"));
 					break;
+
 				case sf::Mouse::Button::Right:
 					board_.flag(pressedCellIdx_);
-					setStringAndKeepOrigin(left_, std::format("Mines left: {}/{}", board_.getFlagCount(), mineCount_));
+					setStringAndKeepOrigin(left_, std::format("Mines left: {}/{}", board_.getFlagCount(), board_.getMineCount()));
 					break;
 				}
 			}
@@ -138,8 +145,11 @@ public:
 	{
 		if (code == sf::Keyboard::Key::Escape)
 		{
+			gameEnd_ = false;
 			board_.clear();
+			board_.placeMines();
 			clock_.reset();
+			setStringAndKeepOrigin(left_, std::format("Mines left: 0/{}", board_.getFlagCount(), board_.getMineCount()));
 		}
 	}
 
@@ -152,14 +162,18 @@ public:
 
 			if (cell.flagged)
 			{
-				texture = &Resources::Textures::unopenedFlaggedCell;
+				texture = (gameEnd_ && !cell.mined)
+					? &Resources::Textures::openedCellNoMine
+					: &Resources::Textures::unopenedFlaggedCell;
 			}
 
 			else if (!cell.opened)
 			{
-				if (board_.isLost() && cell.mined) texture = &Resources::Textures::openedCellMine;
-				else if (pressedCellIdx_ == index) texture = &Resources::Textures::unopenedSelectedCell;
-				else                               texture = &Resources::Textures::unopenedCell;
+				texture = (gameEnd_ && cell.mined)
+					? &Resources::Textures::openedCellMine
+					: (pressedCellIdx_ == index)
+					? &Resources::Textures::unopenedSelectedCell
+					: &Resources::Textures::unopenedCell;
 			}
 
 			else if (cell.mined)
@@ -167,17 +181,23 @@ public:
 				texture = &Resources::Textures::openedCellClickedMine;
 			}
 
-			else switch (cell.adjacentMines)
+			else
 			{
-			case 0: texture = &Resources::Textures::openedCell0; break;
-			case 1: texture = &Resources::Textures::openedCell1; break;
-			case 2: texture = &Resources::Textures::openedCell2; break;
-			case 3: texture = &Resources::Textures::openedCell3; break;
-			case 4: texture = &Resources::Textures::openedCell4; break;
-			case 5: texture = &Resources::Textures::openedCell5; break;
-			case 6: texture = &Resources::Textures::openedCell6; break;
-			case 7: texture = &Resources::Textures::openedCell7; break;
-			case 8: texture = &Resources::Textures::openedCell8; break;
+				constexpr const sf::Texture* openedCellTextures[]
+				{
+					&Resources::Textures::openedCell0,
+					&Resources::Textures::openedCell1,
+					&Resources::Textures::openedCell2,
+					&Resources::Textures::openedCell3,
+					&Resources::Textures::openedCell4,
+					&Resources::Textures::openedCell5,
+					&Resources::Textures::openedCell6,
+					&Resources::Textures::openedCell7,
+					&Resources::Textures::openedCell8,
+				};
+
+				assert(cell.adjacentMines < 9);
+				texture = openedCellTextures[cell.adjacentMines];
 			}
 
 			assert(texture);
@@ -187,7 +207,6 @@ public:
 			drawTexture(rt, *texture, rect);
 		}
 
-		setStringAndKeepOrigin(const_cast<sf::Text&>(left_), std::format("Mines left: {}/{}", board_.getFlagCount(), mineCount_));
 		setStringAndKeepOrigin(const_cast<sf::Text&>(center_), std::format("{}", clock_.getElapsedTime().asMilliseconds() / 1000));
 
 		rt.draw(left_);
@@ -199,7 +218,8 @@ public:
 	sf::Vector2f cellSize_;
 	sf::Clock clock_;
 	sf::Text left_, center_, right_;
-	std::size_t mineCount_, pressedCellIdx_;
+	std::size_t pressedCellIdx_;
+	bool gameEnd_;
 };
 
 int main()

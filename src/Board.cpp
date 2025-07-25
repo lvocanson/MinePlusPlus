@@ -6,7 +6,7 @@
 Board::Board()
 	: size_{}
 	, mineCount_{}, flagCount_{}, openCount_{}
-	, cells_{}
+	, cells_{}, watchedIndices_{}
 {
 }
 
@@ -14,54 +14,6 @@ void Board::resize(const Vec2s& size)
 {
 	size_ = size;
 	clear();
-}
-
-void Board::placeMines(std::size_t count, std::size_t safeIndex)
-{
-	assert(count <= getMaxNumberOfMines());
-
-	if (mineCount_ > 0)
-		clear();
-
-	struct It
-	{
-		using value_type = std::size_t;
-		using difference_type = std::ptrdiff_t;
-		using iterator_category = std::input_iterator_tag;
-		using pointer = const std::size_t*;
-		using reference = std::size_t;
-		
-		value_type value;
-		value_type forbidden;
-
-
-		It& operator++() { if (++value == forbidden) ++value; return *this; }
-		bool operator==(const It& other) const = default;
-		value_type operator*() const { return value; }
-	};
-
-	std::vector<std::size_t> randIndices(count);
-	{
-		std::mt19937_64 gen(std::random_device{}());
-		It first{0, safeIndex}, last{cells_.size(), safeIndex};
-		std::sample(first, last, randIndices.begin(), count, gen);
-	}
-
-	for (std::size_t index : randIndices)
-	{
-		cells_[index].mined = true;
-		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
-		{
-			++cells_[toIndex(coordinates)].adjacentMines;
-		}
-	}
-	mineCount_ = count;
-}
-
-void Board::clear()
-{
-	mineCount_ = flagCount_ = openCount_ = 0;
-	cells_.assign(size_.x * size_.y, {});
 }
 
 bool Board::areCoordinatesValid(const Vec2s& coordinates) const
@@ -91,15 +43,51 @@ Vec2s Board::toCoordinates(std::size_t index) const
 	};
 }
 
-void Board::open(std::size_t index)
+void Board::setMineCount(std::size_t mineCount)
+{
+	assert(mineCount > 0);
+	assert(mineCount <= getMaxNumberOfMines());
+	mineCount_ = mineCount;
+}
+
+void Board::placeMines()
+{
+	clear();
+
+	std::mt19937_64 gen(std::random_device{}());
+	std::size_t cellsWithoutAdjacentMines = cells_.size();
+
+	for (std::size_t i = cells_.size() - mineCount_; i < cells_.size(); ++i)
+	{
+		std::uniform_int_distribution<std::size_t> dis(0, i);
+		std::size_t r = dis(gen);
+		std::size_t index = cells_[r].mined ? i : r;
+
+		assert(!cells_[index].mined);
+		cells_[index].mined = true;
+
+		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
+		{
+			if (++cells_[toIndex(coordinates)].adjacentMines == 1)
+				--cellsWithoutAdjacentMines;
+		}
+	}
+}
+
+void Board::clear()
+{
+	flagCount_ = openCount_ = 0;
+	cells_.assign(size_.x * size_.y, {});
+	watchedIndices_.clear();
+}
+
+bool Board::open(std::size_t index)
 {
 	assert(isIndexValid(index));
 
 	auto& first = cells_[index];
 	if (first.flagged)
-		return;
-
-	std::vector<std::size_t> cellIndices;
+		return false;
 
 	if (first.opened)
 	{
@@ -112,49 +100,39 @@ void Board::open(std::size_t index)
 			auto idx = toIndex(coordinates);
 			auto& c = cells_[idx];
 			if (c.flagged) ++flaggedNeighbourCount;
-			else if (!c.opened) cellIndices.emplace_back(idx);
+			else if (!c.opened) watch(idx);
 		};
 
 		if (flaggedNeighbourCount != first.adjacentMines)
-			return;
+			return false;
 	}
 	else
 	{
-		cellIndices = {index};
+		watch(index);
 	}
 
-	while (!cellIndices.empty())
+	bool mineOpened = false;
+	while (!watchedIndices_.empty())
 	{
-		index = cellIndices.back();
-		cellIndices.pop_back();
-
+		index = popLastWatched();
 		auto& cell = cells_[index];
-		if (cell.opened) [[likely]]
-		{
+
+		mineOpened |= open_single(cell);
+		if (cell.adjacentMines)
 			continue;
-		}
 
-		cell.opened = true;
-		if (cell.mined) [[unlikely]]
+		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
 		{
-			setLost();
-			return;
-		}
-
-		flagCount_ -= cell.flagged;
-		cell.flagged = false;
-		++openCount_;
-
-		if (cell.adjacentMines == 0)
-		{
-			for (auto coordinates : getNeigboursOf(toCoordinates(index)))
+			auto idx = toIndex(coordinates);
+			auto& c = cells_[idx];
+			if (!c.opened)
 			{
-				auto idx = toIndex(coordinates);
-				if (!cells_[idx].opened)
-					cellIndices.emplace_back(idx);
-			};
-		}
+				if (c.adjacentMines)open_single(c);
+				else watch(idx);
+			}
+		};
 	}
+	return mineOpened;
 }
 
 void Board::flag(std::size_t index)
@@ -163,6 +141,34 @@ void Board::flag(std::size_t index)
 	auto& cell = cells_[index];
 	if (!cell.opened)
 		flagCount_ += std::size_t(cell.flagged ^= true) * 2 - 1;
+}
+
+bool Board::open_single(Cell& cell)
+{
+	cell.opened = true;
+	flagCount_ -= cell.flagged;
+	cell.flagged = false;
+	++openCount_;
+	return cell.mined;
+}
+
+void Board::watch(std::size_t index)
+{
+	auto& cell = cells_[index];
+	if (!cell.watched)
+	{
+		cell.watched = true;
+		watchedIndices_.emplace_back(index);
+	}
+}
+
+std::size_t Board::popLastWatched()
+{
+	assert(!watchedIndices_.empty());
+	std::size_t index = watchedIndices_.back();
+	watchedIndices_.pop_back();
+	cells_[index].watched = false;
+	return index;
 }
 
 NeighbourRange::NeighbourRange(const Board& board, const Vec2s& coordinates)

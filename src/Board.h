@@ -4,10 +4,11 @@
 
 struct Cell
 {
+	std::uint8_t adjacentMines : 4; // [0, 15]
+	bool watched : 1; // flag for open algo
 	bool mined : 1;
 	bool opened : 1;
 	bool flagged : 1;
-	std::uint8_t adjacentMines : 5; // [0, 31]
 };
 
 struct Vec2s
@@ -54,22 +55,25 @@ public:
 	const Vec2s& getSize() const { return size_; }
 	bool hasValidSize() const { return cells_.size() > 1; }
 
-	std::size_t getMaxNumberOfMines() const { return cells_.size() - 1; }
-	void placeMines(std::size_t count, std::size_t safeIndex);
-	std::size_t getMineCount() const { return mineCount_; }
-	void clear();
-
 	bool areCoordinatesValid(const Vec2s& coordinates) const;
 	bool isIndexValid(std::size_t index) const;
 	std::size_t toIndex(const Vec2s& coordinates) const;
 	Vec2s toCoordinates(std::size_t index) const;
 
-	void open(std::size_t index);
+	std::size_t getMaxNumberOfMines() const { return cells_.size() - 1; }
+	void setMineCount(std::size_t mineCount);
+	std::size_t getMineCount() const { return mineCount_; }
+	void placeMines();
+	void clear();
+
+	// returns true if mine opened
+	bool open(std::size_t index);
+	std::size_t getOpenCount() const { return openCount_; }
+
 	void flag(std::size_t index);
 	std::size_t getFlagCount() const { return flagCount_; }
 
 	bool isWon() const { return openCount_ == cells_.size() - mineCount_; }
-	bool isLost() const { return openCount_ == std::size_t(-1); }
 
 	const Cell& getCellAt(std::size_t index) const { return cells_[index]; }
 	const std::vector<Cell>& getCells() const { return cells_; }
@@ -77,9 +81,12 @@ public:
 
 private:
 
-	void setLost() { openCount_ = -1; }
+	bool open_single(Cell& cell);
+	void watch(std::size_t index);
+	std::size_t popLastWatched();
 
 	Vec2s size_;
 	std::size_t mineCount_, flagCount_, openCount_;
 	std::vector<Cell> cells_;
+	std::vector<std::size_t> watchedIndices_;
 };
