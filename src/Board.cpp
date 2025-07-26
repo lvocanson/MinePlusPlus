@@ -1,12 +1,90 @@
 #include "Board.h"
+#include "MyRandom.h"
 #include <algorithm>
 #include <cassert>
-#include <random>
+
+constexpr Vec2s Vec2s::operator+(const Vec2s& rhs) const
+{
+	return {x + rhs.x, y + rhs.y};
+}
+
+namespace
+{
+constexpr NeighbourRange::nt dcoordinates
+{{
+	{-1, -1},
+	{ 0, -1},
+	{ 1, -1},
+	{-1,  0},
+	{ 0,  0},
+	{ 1,  0},
+	{-1,  1},
+	{ 0,  1},
+	{ 1,  1}
+}};
+}
+
+NeighbourRange::NeighbourRange(const Board& board, const Vec2s& coordinates)
+{
+	std::size_t n = 0;
+	for (auto& dc : dcoordinates)
+	{
+		auto coo = coordinates + dc;
+		if (board.areCoordinatesValid(coo))
+			neighbours[n++] = coo;
+	}
+
+	for (; n < neighbours.size(); ++n)
+	{
+		neighbours[n] = INVALID_VEC2S;
+	}
+}
+
+NeighbourRange::nt::const_iterator NeighbourRange::begin() const
+{
+	return neighbours.begin();
+}
+
+NeighbourRange::nt::const_iterator NeighbourRange::end() const
+{
+	for (auto it = neighbours.begin(); it != neighbours.end(); ++it)
+	{
+		if (*it == INVALID_VEC2S)
+			return it;
+	}
+	return neighbours.end();
+}
+
+Board Board::EasyBoard()
+{
+	Board b;
+	b.resize({9, 9});
+	b.setMineCount(10);
+	return b;
+}
+
+Board Board::MediumBoard()
+{
+	Board b;
+	b.resize({16, 16});
+	b.setMineCount(40);
+	return b;
+}
+
+Board Board::HardBoard()
+{
+	Board b;
+	b.resize({30, 16});
+	b.setMineCount(99);
+	return b;
+}
 
 Board::Board()
 	: size_{}
 	, mineCount_{}, flagCount_{}, openCount_{}
-	, cells_{}, watchedIndices_{}
+	, cells_{}
+	, begFrontline_{}, endFrontline_{}
+	, frontline_{}
 {
 }
 
@@ -26,7 +104,6 @@ void Board::resize(const Vec2s& size)
 	size_ = size;
 	clear();
 }
-
 
 bool Board::areCoordinatesValid(const Vec2s& coordinates) const
 {
@@ -65,40 +142,43 @@ void Board::placeMines()
 {
 	assert(isSizeValid(size_));
 
-
-	std::mt19937_64 gen(std::random_device{}());
-	std::size_t noAdjCellCount = cells_.size();
 	for (std::size_t i = cells_.size() - mineCount_; i < cells_.size(); ++i)
 	{
 		std::uniform_int_distribution<std::size_t> dist(0, i);
 		std::size_t r = dist(gen);
 		std::size_t index = cells_[r].mined ? i : r;
-
-		assert(!cells_[index].mined);
-		cells_[index].mined = true;
-
-		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
-		{
-			if (++cells_[toIndex(coordinates)].adjacentMines == 1)
-				--noAdjCellCount;
-		}
+		mineCell(index);
 	}
 
-	// 1 = square (more expensive), 0 = line (cheaper)
-	double shape = double(std::min(size_.x, size_.y)) / std::max(size_.x, size_.y);
-	double shapeCoef = .25, shapeBias = .5;
-	
-	// 1 = empty (more expensive), 0 = filled (no cost)
-	double density = double(noAdjCellCount) / cells_.size();
-	double densityCoef = .5, densityBias = .25;
+	setupFrontline();
+}
 
-	double largestFloodFillSize = noAdjCellCount
-		* (shape * shapeCoef + shapeBias)
-		* (density * densityCoef + densityBias);
+void Board::makeSafe(std::size_t index)
+{
+	assert(isIndexValid(index));
 
-	watchedIndices_.reserve(std::size_t(largestFloodFillSize) + 1);
-	noAdj = noAdjCellCount;
-	initWatched = watchedIndices_.capacity();
+	auto& cell = cells_[index];
+	if (!cell.mined)
+		return;
+
+	// mine another cell
+	std::size_t spotsLeft = cells_.size() - mineCount_;
+	std::uniform_int_distribution<std::size_t> dist(1, spotsLeft);
+	std::size_t n = dist(gen);
+	for (std::size_t i = 0; i < cells_.size(); ++i)
+	{
+		if (!cells_[i].mined && --n == 0)
+			mineCell(i);
+	}
+
+	// remove this mine
+	cell.mined = false;
+	for (auto& coordinates : getNeigboursOf(toCoordinates(index)))
+	{
+		--cells_[toIndex(coordinates)].adjacentMines;
+	}
+
+	setupFrontline();
 }
 
 void Board::clear()
@@ -106,7 +186,7 @@ void Board::clear()
 	assert(isSizeValid(size_));
 	flagCount_ = openCount_ = 0;
 	cells_.assign(size_.x * size_.y, {});
-	watchedIndices_.clear();
+	begFrontline_ = endFrontline_ = 0;
 }
 
 bool Board::open(std::size_t index)
@@ -116,15 +196,17 @@ bool Board::open(std::size_t index)
 	auto& first = cells_[index];
 	if (first.flagged)
 		return false;
+	
+	bool mineOpened = false;
 
 	if (first.opened)
 	{
 		// If re-opening a cell then open all neighbours, but only if the
 		// number of flagged neighbours match the number of adjacent mines.
 		std::size_t flaggedNeighbourCount = 0;
-		
+
 		auto neighbours = getNeigboursOf(toCoordinates(index));
-		for (auto coordinates : neighbours)
+		for (auto& coordinates : neighbours)
 		{
 			auto idx = toIndex(coordinates);
 			auto& c = cells_[idx];
@@ -134,40 +216,50 @@ bool Board::open(std::size_t index)
 		if (flaggedNeighbourCount != first.adjacentMines)
 			return false;
 
-		for (auto coordinates : neighbours)
+		for (auto& coordinates : neighbours)
 		{
 			auto idx = toIndex(coordinates);
 			auto& c = cells_[idx];
 			if (!c.opened && !c.flagged)
 			{
-				if (c.adjacentMines) openCell(c);
-				else watch(idx);
+				if (c.adjacentMines) mineOpened |= openCell(c);
+				else pushFrontline(idx);
 			}
 		}
 	}
+
 	else
 	{
-		watch(index);
+		pushFrontline(index);
 	}
 
-	bool mineOpened = false;
-	while (!watchedIndices_.empty())
+	// BFS algorithm. We maintain a 'frontline', expanding towards closed and
+	// no adjacentMines cells. A 'frontline' cell is a cell that will soon be
+	// opened, to avoid duplicates in the frontline_ queue/circular array.
+	while (isFrontlinePushing())
 	{
-		index = popLastWatched();
+		index = popFrontline();
 		auto& cell = cells_[index];
 
 		mineOpened |= openCell(cell);
 		if (cell.adjacentMines)
 			continue;
 
-		for (auto coordinates : getNeigboursOf(toCoordinates(index)))
+		for (auto& coordinates : getNeigboursOf(toCoordinates(index)))
 		{
 			auto idx = toIndex(coordinates);
 			auto& c = cells_[idx];
 			if (!c.opened)
 			{
-				if (c.adjacentMines) openCell(c);
-				else watch(idx);
+				if (c.adjacentMines)
+				{
+					bool shouldNotHaveOpenedAMine = openCell(c);
+					assert(!shouldNotHaveOpenedAMine);
+				}
+				else if (!c.frontline)
+				{
+					pushFrontline(idx);
+				}
 			}
 		};
 	}
@@ -179,11 +271,25 @@ void Board::flag(std::size_t index)
 	assert(isIndexValid(index));
 	auto& cell = cells_[index];
 	if (!cell.opened)
+	{
 		flagCount_ += std::size_t(cell.flagged ^= true) * 2 - 1;
+	}
+}
+
+void Board::mineCell(std::size_t index)
+{
+	assert(isIndexValid(index));
+	assert(!cells_[index].mined);
+	cells_[index].mined = true;
+	for (auto& coordinates : getNeigboursOf(toCoordinates(index)))
+	{
+		++cells_[toIndex(coordinates)].adjacentMines;
+	}
 }
 
 bool Board::openCell(Cell& cell)
 {
+	assert(!cell.opened);
 	cell.opened = true;
 	flagCount_ -= cell.flagged;
 	cell.flagged = false;
@@ -191,67 +297,69 @@ bool Board::openCell(Cell& cell)
 	return cell.mined;
 }
 
-void Board::watch(std::size_t index)
+void Board::setupFrontline()
 {
-	auto& cell = cells_[index];
-	if (!cell.watched)
+	std::size_t fSize = biggestFrontline() / 4;
+	frontline_.resize(fSize);
+	begFrontline_ = endFrontline_ = 0;
+}
+
+std::size_t Board::biggestFrontline() const
+{
+	// The frontline expands as a square (8 neighbours) so in the worst case,
+	// meaning no mines to stop it, the biggest square perimeter is four times
+	// the smallest side, minus duplicates cells.
+	return std::min(size_.x, size_.y) * 4 - 2;
+}
+
+bool Board::isFrontlinePushing() const
+{
+	return begFrontline_ != endFrontline_;
+}
+
+void Board::pushFrontline(std::size_t index)
+{
+	assert(isIndexValid(index));
+	assert(!cells_[index].frontline);
+	cells_[index].frontline = true;
+
+	assert(endFrontline_ < frontline_.size());
+	frontline_[endFrontline_] = index;
+	endFrontline_ = (endFrontline_ + 1) % frontline_.size();
+
+	if (begFrontline_ == endFrontline_) // need to grow
 	{
-		cell.watched = true;
-		watchedIndices_.emplace_back(index);
+		std::size_t fSize = frontline_.size();
+		frontline_.resize(fSize * 2);
+
+		std::size_t beg, end;
+		if (fSize - begFrontline_ < begFrontline_) // end is smaller
+		{
+			endFrontline_ += fSize;
+			beg = 0;
+			end = begFrontline_;
+		}
+		else // beg is smaller
+		{
+			begFrontline_ += fSize;
+			beg = endFrontline_;
+			end = fSize;
+		}
+
+		// move smallest part
+		for (auto i = beg; i < end; ++i)
+		{
+			frontline_[i + fSize] = std::move(frontline_[i]);
+		}
 	}
 }
 
-std::size_t Board::popLastWatched()
+std::size_t Board::popFrontline()
 {
-	if (maxWatched < watchedIndices_.size())
-	{
-		maxWatched = watchedIndices_.size();
-	}
-
-	assert(!watchedIndices_.empty());
-	std::size_t index = watchedIndices_.back();
-	watchedIndices_.pop_back();
-	cells_[index].watched = false;
+	assert(isFrontlinePushing());
+	assert(begFrontline_ < frontline_.size());
+	std::size_t index = frontline_[begFrontline_];
+	begFrontline_ = (begFrontline_ + 1) % frontline_.size();
+	cells_[index].frontline = false;
 	return index;
-}
-
-NeighbourRange::NeighbourRange(const Board& board, const Vec2s& coordinates)
-	: board(board)
-	, coordinates(coordinates)
-{
-}
-
-NeighbourRange::Iterator::Iterator(const NeighbourRange* range)
-	: range(range)
-	, dc(-2), dr(-1)
-{
-	operator++();
-}
-
-NeighbourRange::Iterator& NeighbourRange::Iterator::operator++()
-{
-	while (range)
-	{
-		if (++dc > 1)
-		{
-			dc = -1;
-			++dr;
-		}
-		if (dr > 1)
-		{
-			range = nullptr;
-			break;
-		}
-		if (range->board.areCoordinatesValid(**this))
-			break;
-	}
-	return *this;
-}
-
-Vec2s NeighbourRange::Iterator::operator*() const
-{
-	Vec2s retval = range->coordinates;
-	retval.x += dc;
-	retval.y += dr;
-	return retval;
 }

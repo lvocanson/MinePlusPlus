@@ -1,3 +1,4 @@
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -5,48 +6,41 @@
 struct Cell
 {
 	std::uint8_t adjacentMines : 4; // [0, 15]
-	bool watched : 1; // flag for open algo
 	bool mined : 1;
 	bool opened : 1;
 	bool flagged : 1;
+	bool frontline : 1;
 };
 
 struct Vec2s
 {
 	std::size_t x, y;
-};
 
-class Board;
+	constexpr Vec2s operator+(const Vec2s&) const;
+	constexpr bool operator==(const Vec2s&) const = default;
+};
+constexpr Vec2s INVALID_VEC2S = {-1, -1};
+
 
 struct NeighbourRange
 {
-	NeighbourRange(const Board& board, const Vec2s& coordinates);
+	NeighbourRange(const class Board& board, const Vec2s& coordinates);
 
-	struct Iterator
-	{
-		Iterator() = default;
-		Iterator(const NeighbourRange* range);
-		Iterator& operator++();
-		bool operator==(const Iterator& other) const { return range == other.range; }
-		Vec2s operator*() const;
+	using nt = std::array<Vec2s, 9>;
+	nt neighbours;
 
-	private:
-
-		const NeighbourRange* range = nullptr;
-		int dc, dr;
-	};
-
-	Iterator begin() const { return this; }
-	Iterator end() const { return {}; }
-
-private:
-
-	const Board& board;
-	const Vec2s coordinates;
+	nt::const_iterator begin() const;
+	nt::const_iterator end() const;
 };
 
 class Board
 {
+public:
+
+	static Board EasyBoard();
+	static Board MediumBoard();
+	static Board HardBoard();
+
 public:
 
 	Board();
@@ -65,6 +59,7 @@ public:
 	std::size_t getMineCount() const { return mineCount_; }
 
 	void placeMines();
+	void makeSafe(std::size_t index); // only the index of the last call is guaranted to be safe
 	void clear();
 
 	// returns true if mine opened
@@ -82,18 +77,26 @@ public:
 
 private:
 
+	void mineCell(std::size_t index);
 	bool openCell(Cell& cell);
-	void watch(std::size_t index);
-	std::size_t popLastWatched();
+
+private:
 
 	Vec2s size_;
 	std::size_t mineCount_, flagCount_, openCount_;
 	std::vector<Cell> cells_;
-	std::vector<std::size_t> watchedIndices_;
 
-public:
+private:
 
-	std::size_t noAdj = 0;
-	std::size_t initWatched = 0;
-	std::size_t maxWatched = 0;
+	void setupFrontline();
+	std::size_t biggestFrontline() const;
+
+	bool isFrontlinePushing() const;
+	void pushFrontline(std::size_t index);
+	std::size_t popFrontline();
+
+private:
+
+	std::size_t begFrontline_, endFrontline_;
+	std::vector<size_t> frontline_;
 };
