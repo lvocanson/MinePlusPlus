@@ -1,3 +1,4 @@
+#pragma once
 #include <random>
 
 // 64 bits number generator
