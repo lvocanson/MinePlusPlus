@@ -15,44 +15,53 @@ GameScene::GameScene(Vec2s size, std::size_t mineCount)
 	board_.placeMines();
 	clock_.reset();
 
-	float bestTime = std::numeric_limits<float>::signaling_NaN();
-
-	left_.setString(std::format("Mines left: 0/{}", mineCount));
 	left_.setCharacterSize(FONT_SIZE);
 	left_.setFillColor(sf::Color::White);
 	left_.setOutlineColor(sf::Color::Black);
 	left_.setOutlineThickness(1.f);
-	left_.setOrigin({0.f, -1.f});
+	updateLeftText();
+	{
+		auto bounds = left_.getLocalBounds();
+		left_.setOrigin({bounds.position.x - 1.f, 1.f});
+	}
 
 	center_ = left_;
-	center_.setString("0");
-	center_.setOrigin({center_.getLocalBounds().size.x / 2.f, -1.f});
+	updateCenterText();
+	{
+		auto bounds = center_.getLocalBounds();
+		center_.setOrigin({bounds.position.x + bounds.size.x / 2.f, 1.f});
+	}
 
 	right_ = left_;
-	right_.setString(std::format("Best: {:.3f}", bestTime));
-	right_.setOrigin({right_.getLocalBounds().size.x, -1.f});
+	updateRightText();
+	{
+		auto bounds = right_.getLocalBounds();
+		right_.setOrigin({bounds.position.x + bounds.size.x + 1.f, 1.f});
+	}
 }
 
-void GameScene::onWindowResize(sf::Vector2u size)
+void GameScene::onWindowResize(sf::Vector2u windowSize)
 {
-	sf::Vector2f boardArea{size};
-	boardArea.y -= 2 + FONT_SIZE;
-	auto [w, h] = board_.getSize();
-	auto [x, y] = boardArea.componentWiseDiv({float(w), float(h)});
-	float min = std::min(x, y);
+	sf::Vector2f availableBoardSize{float(windowSize.x), float(windowSize.y - 2 - FONT_SIZE)};
 
-	boardArea = {min * w, min * h};
-	cellSize_ = {min, min};
+	auto& [boardCols, boardRows] = board_.getSize();
+	sf::Vector2f cellScale = availableBoardSize.componentWiseDiv({float(boardCols), float(boardRows)});
+	float uniformCellSize = std::min(cellScale.x, cellScale.y);
 
-	left_.setPosition({0.f, boardArea.y});
-	center_.setPosition({boardArea.x / 2.f, boardArea.y});
-	right_.setPosition(boardArea);
+	sf::Vector2f boardPixelSize = {uniformCellSize * boardCols, uniformCellSize * boardRows};
+	sf::Vector2f totalSceneSize = boardPixelSize + sf::Vector2f{0.f, 2 + FONT_SIZE};
+
+	boardPosition_ = (sf::Vector2f(windowSize) - totalSceneSize) / 2.f;
+	cellSize_ = {uniformCellSize, uniformCellSize};
+
+	left_.setPosition(boardPosition_ + sf::Vector2f{0.f, boardPixelSize.y});
+	center_.setPosition(boardPosition_ + sf::Vector2f{boardPixelSize.x / 2.f, boardPixelSize.y});
+	right_.setPosition(boardPosition_ + boardPixelSize);
 }
 
 void GameScene::onMouseButtonPressed(sf::Vector2f coordinates, sf::Mouse::Button button)
 {
-	auto [x, y] = coordinates.componentWiseDiv(cellSize_);
-	Vec2s coo = {std::size_t(x), std::size_t(y)};
+	auto coo = ToBoardCoordinates(coordinates);
 	if (board_.areCoordinatesValid(coo))
 	{
 		pressedCellIdx_ = board_.toIndex(coo);
@@ -61,45 +70,45 @@ void GameScene::onMouseButtonPressed(sf::Vector2f coordinates, sf::Mouse::Button
 
 void GameScene::onMouseButtonReleased(sf::Vector2f coordinates, sf::Mouse::Button button)
 {
-	auto [x, y] = coordinates.componentWiseDiv(cellSize_);
-	Vec2s coo = {std::size_t(x), std::size_t(y)};
-	if (board_.areCoordinatesValid(coo))
+	auto pressedCellIdx = std::exchange(pressedCellIdx_, -1);
+	auto coo = ToBoardCoordinates(coordinates);
+	if (!board_.areCoordinatesValid(coo))
+		return;
+
+	// Only continue if we release the mouse on the previously pressed cell
+	if (pressedCellIdx != board_.toIndex(coo))
+		return;
+
+	switch (button)
 	{
-		if (pressedCellIdx_ == board_.toIndex(coo))
+	case sf::Mouse::Button::Left:
+	{
+		if (!gameEnd_ && !clock_.isRunning()) // first click
 		{
-			switch (button)
-			{
-			case sf::Mouse::Button::Left:
-			{
-				if (!gameEnd_ && !clock_.isRunning()) // first click
-				{
-					board_.makeSafe(pressedCellIdx_);
-					clock_.restart();
-				}
-
-				bool lost = board_.open(pressedCellIdx_);
-				gameEnd_ = lost || board_.isWon();
-				if (!gameEnd_)
-					break;
-
-				clock_.stop();
-				if (lost)
-					setStringAndKeepOrigin(center_, std::format("LOST!"));
-				else
-					setStringAndKeepOrigin(center_, std::format("VICTORY! {:.3f}", clock_.getElapsedTime().asSeconds()));
-			}
-			break;
-
-			case sf::Mouse::Button::Right:
-			{
-				board_.flag(pressedCellIdx_);
-				setStringAndKeepOrigin(left_, std::format("Mines left: {}/{}", board_.getFlagCount(), board_.getMineCount()));
-			}
-			break;
-			}
+			board_.makeSafe(pressedCellIdx);
+			clock_.restart();
 		}
+
+		bool lost = board_.open(pressedCellIdx);
+		gameEnd_ = lost || board_.isWon();
+		if (!gameEnd_)
+			break;
+
+		clock_.stop();
+		if (lost)
+			setStringAndKeepOrigin(center_, std::format("LOST!"));
+		else
+			setStringAndKeepOrigin(center_, std::format("VICTORY! {:.3f}", clock_.getElapsedTime().asSeconds()));
 	}
-	pressedCellIdx_ = -1;
+	break;
+
+	case sf::Mouse::Button::Right:
+	{
+		board_.flag(pressedCellIdx);
+		updateLeftText();
+	}
+	break;
+	}
 }
 
 void GameScene::onKeyPressed(sf::Keyboard::Key code)
@@ -110,12 +119,22 @@ void GameScene::onKeyPressed(sf::Keyboard::Key code)
 		board_.clear();
 		board_.placeMines();
 		clock_.reset();
-		setStringAndKeepOrigin(left_, std::format("Mines left: 0/{}", board_.getMineCount()));
+		updateLeftText();
+	}
+}
+
+void GameScene::update()
+{
+	if (!gameEnd_)
+	{
+		updateCenterText();
 	}
 }
 
 void GameScene::drawOn(sf::RenderTarget& rt) const
 {
+	rt.clear({0x79, 0x31, 0x32, 0x00});
+
 	for (std::size_t index = 0; index < board_.getCells().size(); ++index)
 	{
 		const sf::Texture* texture = nullptr;
@@ -164,14 +183,43 @@ void GameScene::drawOn(sf::RenderTarget& rt) const
 		assert(texture);
 
 		auto [x, y] = board_.toCoordinates(index);
-		const sf::FloatRect rect{cellSize_.componentWiseMul({float(x), float(y)}), cellSize_};
+		const sf::FloatRect rect{boardPosition_ + cellSize_.componentWiseMul({float(x), float(y)}), cellSize_};
 		drawTexture(rt, *texture, rect);
 	}
-
-	if (!gameEnd_)
-		setStringAndKeepOrigin(const_cast<sf::Text&>(center_), std::format("{}", clock_.getElapsedTime().asMilliseconds() / 1000));
 
 	rt.draw(left_);
 	rt.draw(center_);
 	rt.draw(right_);
+}
+
+void GameScene::updateLeftText()
+{
+	std::make_signed_t<std::size_t> minesLeft = board_.getMineCount() - board_.getFlagCount(); // can be < 0
+	setStringAndKeepOrigin(left_, std::format("Mines left: {}/{}", minesLeft, board_.getMineCount()));
+}
+
+void GameScene::updateCenterText()
+{
+	auto timeInSeconds = clock_.getElapsedTime().asMicroseconds() / 1'000'000;
+	setStringAndKeepOrigin(center_, std::format("{}", timeInSeconds));
+}
+
+void GameScene::updateRightText()
+{
+	float bestTime = std::numeric_limits<float>::signaling_NaN(); // TODO
+	setStringAndKeepOrigin(right_, std::format("Best: {:.3f}", bestTime));
+}
+
+Vec2s GameScene::ToBoardCoordinates(sf::Vector2f coordinates) const
+{
+	coordinates -= boardPosition_;
+	auto [x, y] = coordinates.componentWiseDiv(cellSize_);
+	return {std::size_t(x), std::size_t(y)};
+}
+
+sf::Vector2f GameScene::ToWorldCoordinates(const Vec2s& coordinates) const
+{
+	auto world = cellSize_.componentWiseMul({float(coordinates.x), float(coordinates.y)});
+	world += boardPosition_;
+	return world;
 }

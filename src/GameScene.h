@@ -17,11 +17,22 @@ public:
 	void onMouseButtonReleased(sf::Vector2f coordinates, sf::Mouse::Button button);
 	void onKeyPressed(sf::Keyboard::Key code);
 
+	void update();
 	void drawOn(sf::RenderTarget& rt) const;
 
 private:
 
+	void updateLeftText();
+	void updateCenterText();
+	void updateRightText();
+
+	Vec2s ToBoardCoordinates(sf::Vector2f coordinates) const;
+	sf::Vector2f ToWorldCoordinates(const Vec2s& coordinates) const;
+
+private:
+
 	Board board_;
+	sf::Vector2f boardPosition_;
 	sf::Vector2f cellSize_;
 	sf::Clock clock_;
 	sf::Text left_, center_, right_;

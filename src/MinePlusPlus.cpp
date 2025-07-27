@@ -50,7 +50,7 @@ int main()
 			}
 		}
 
-		window.clear();
+		game.update();
 		game.drawOn(window);
 		window.display();
 	}
