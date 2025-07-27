@@ -13,7 +13,7 @@ FetchContent_Declare(SFML
 )
 FetchContent_MakeAvailable(SFML)
 
-add_executable (MinePlusPlus "src/MinePlusPlus.cpp"  "src/Board.h"  "src/Board.cpp" "src/Resources.h"  "src/GameScene.h" "src/GameScene.cpp" "src/SFMLExtensions.h" "src/SFMLExtensions.cpp" "src/MyRandom.h")
+add_executable (MinePlusPlus "src/MinePlusPlus.cpp"  "src/Board.h"  "src/Board.cpp" "src/Resources.h"  "src/GameScene.h" "src/GameScene.cpp" "src/SFMLExtensions.h" "src/SFMLExtensions.cpp" "src/MyRandom.h" "src/App.h" "src/App.cpp"  "src/Scene.h")
 
 set_property(TARGET MinePlusPlus PROPERTY CXX_STANDARD 20)
 

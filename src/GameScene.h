@@ -1,6 +1,7 @@
 #pragma once
 #include "Board.h"
 #include "Resources.h"
+#include "Scene.h"
 #include <SFML/Graphics.hpp>
 
 class GameScene
@@ -40,3 +41,4 @@ private:
 	std::size_t pressedCellIdx_;
 	bool gameEnd_;
 };
+static_assert(Scene<GameScene>);
