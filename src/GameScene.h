@@ -1,10 +1,10 @@
 #pragma once
 #include "Board.h"
 #include "Resources.h"
-#include "Scene.h"
+#include "IScene.h"
 #include <SFML/Graphics.hpp>
 
-class GameScene
+class GameScene : public IScene
 {
 	static constexpr auto& FONT_REF = Resources::Fonts::roboto;
 	static constexpr auto DEFAULT_STRING = "Empty text";
@@ -14,13 +14,15 @@ public:
 
 	GameScene(Vec2s size, std::size_t mineCount);
 
-	void onWindowResize(sf::Vector2u size);
-	void onMouseButtonPressed(sf::Vector2f coordinates, sf::Mouse::Button button);
-	void onMouseButtonReleased(sf::Vector2f coordinates, sf::Mouse::Button button);
-	void onKeyPressed(sf::Keyboard::Key code);
+private:
 
-	void update();
-	void drawOn(sf::RenderTarget& rt) const;
+	void onWindowResize(sf::Vector2u size) override;
+	void onMouseButtonPressed(sf::Vector2f coordinates, sf::Mouse::Button button) override;
+	void onMouseButtonReleased(sf::Vector2f coordinates, sf::Mouse::Button button) override;
+	void onKeyPressed(sf::Keyboard::Key code) override;
+
+	std::unique_ptr<IScene> update() override;
+	void drawOn(sf::RenderTarget& rt) const override;
 
 private:
 
@@ -40,5 +42,5 @@ private:
 	sf::Text left_, center_, right_;
 	std::size_t pressedCellIdx_;
 	bool gameEnd_;
+	std::unique_ptr<IScene> nextScene_;
 };
-static_assert(Scene<GameScene>);

@@ -123,12 +123,14 @@ void GameScene::onKeyPressed(sf::Keyboard::Key code)
 	}
 }
 
-void GameScene::update()
+std::unique_ptr<IScene> GameScene::update()
 {
 	if (!gameEnd_)
 	{
 		updateCenterText();
 	}
+
+	return std::move(nextScene_);
 }
 
 void GameScene::drawOn(sf::RenderTarget& rt) const

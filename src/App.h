@@ -1,20 +1,20 @@
 #pragma once
-#include "GameScene.h"
-#include <variant>
+#include "IScene.h"
+#include <SFML/Graphics/RenderWindow.hpp>
 
 class App
 {
 public:
 
 	App();
-	int run(); 
+	int run();
 
 private:
 
-	void sceneExec(auto&& func) { std::visit(std::forward<decltype(func)>(func), scene_); };
+	void onSceneChanged();
 
 public:
-
+	
 	void operator()(const sf::Event::Closed&);
 	void operator()(const sf::Event::Resized& data);
 	void operator()(const sf::Event::MouseButtonPressed& data);
@@ -25,5 +25,5 @@ public:
 private:
 
 	sf::RenderWindow window_;
-	std::variant<GameScene> scene_;
+	std::unique_ptr<IScene> scene_;
 };

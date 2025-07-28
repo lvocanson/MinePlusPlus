@@ -1,28 +1,40 @@
 #include "App.h"
-#include "GameScene.h"
+#include "MenuScene.h"
 
 App::App()
 	: window_(sf::VideoMode({900, 600}), "Mine++")
-	, scene_(std::in_place_type_t<GameScene>{}, Vec2s{16, 16}, 40)
+	, scene_(std::make_unique<MenuScene>())
 {
 	window_.setVerticalSyncEnabled(true);
-	sceneExec([&](Scene auto& scene) { scene.onWindowResize(window_.getSize()); });
+	onSceneChanged();
 }
 
 int App::run()
 {
+	assert(scene_);
 
 	while (window_.isOpen())
 	{
 		while (auto event = window_.pollEvent())
 			event->visit(*this);
 
-		sceneExec([&](Scene auto& scene) { scene.update(); });
-		sceneExec([&](Scene auto& scene) { scene.drawOn(window_); });
+		if (auto ptr = scene_->update())
+		{
+			scene_ = std::move(ptr);
+			onSceneChanged();
+			continue;
+		}
+
+		scene_->drawOn(window_);
 		window_.display();
 	}
 
 	return EXIT_SUCCESS;
+}
+
+void App::onSceneChanged()
+{
+	scene_->onWindowResize(window_.getSize());
 }
 
 void App::operator()(const sf::Event::Closed&) 
@@ -37,22 +49,22 @@ void App::operator()(const sf::Event::Resized& data)
 	view.setSize(size);
 	view.setCenter(size / 2.f);
 	window_.setView(view);
-	sceneExec([&](Scene auto& scene) { scene.onWindowResize(data.size); });
+	scene_->onWindowResize(data.size);
 }
 
 void App::operator()(const sf::Event::MouseButtonPressed& data)
 {
 	auto coords = window_.mapPixelToCoords(data.position, window_.getView());
-	sceneExec([&](Scene auto& scene) { scene.onMouseButtonPressed(coords, data.button); });
+	scene_->onMouseButtonPressed(coords, data.button);
 }
 
 void App::operator()(const sf::Event::MouseButtonReleased& data)
 {
 	auto coords = window_.mapPixelToCoords(data.position, window_.getView());
-	sceneExec([&](Scene auto& scene) { scene.onMouseButtonReleased(coords, data.button); });
+	scene_->onMouseButtonReleased(coords, data.button);
 }
 
 void App::operator()(const sf::Event::KeyPressed& data)
 {
-	sceneExec([&](Scene auto& scene) { scene.onKeyPressed(data.code); });
+	scene_->onKeyPressed(data.code);
 }
