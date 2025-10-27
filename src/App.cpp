@@ -1,70 +1,71 @@
 #include "App.h"
-#include "MenuScene.h"
+#include <chrono>
 
 App::App()
 	: window_(sf::VideoMode({900, 600}), "Mine++")
-	, scene_(std::make_unique<MenuScene>())
+	, clearColor_(sf::Color::Magenta)
 {
+	if (instance_)
+		throw;
+	instance_ = this;
+
 	window_.setVerticalSyncEnabled(true);
-	onSceneChanged();
 }
 
 int App::run()
 {
-	assert(scene_);
-
+	auto lastFrame = std::chrono::steady_clock::now();
 	while (window_.isOpen())
 	{
 		while (auto event = window_.pollEvent())
-			event->visit(*this);
+			for (auto it = layerStack_.rbegin(); it != layerStack_.rend(); ++it)
+				if (*it && !(*it)->isSuspended)
+				{
+					auto consumed = (*it)->listenEvent(*event);
+					if (consumed == EventConsumed::Yes)
+						break;
+				}
 
-		if (auto ptr = scene_->update())
-		{
-			scene_ = std::move(ptr);
-			onSceneChanged();
-			continue;
-		}
+		auto now = std::chrono::steady_clock::now();
+		float dt = std::chrono::duration_cast<std::chrono::nanoseconds>(now - lastFrame).count() / 1e6f;
+		lastFrame = now;
 
-		scene_->drawOn(window_);
+		for (auto& layer : layerStack_)
+			if (layer && !layer->isSuspended)
+				layer->update(dt);
+
+		window_.clear(clearColor_);
+
+		for (auto& layer : layerStack_)
+			if (layer && !layer->isSuspended)
+				layer->render(window_);
+
 		window_.display();
 	}
 
 	return EXIT_SUCCESS;
 }
 
-void App::onSceneChanged()
-{
-	scene_->onWindowResize(window_.getSize());
-}
-
-void App::operator()(const sf::Event::Closed&) 
+void App::exit()
 {
 	window_.close();
 }
 
-void App::operator()(const sf::Event::Resized& data)
+sf::Vector2f App::screenToWorld(sf::Vector2i position)
 {
-	sf::View view = window_.getView();
-	sf::Vector2f size(data.size);
-	view.setSize(size);
-	view.setCenter(size / 2.f);
-	window_.setView(view);
-	scene_->onWindowResize(data.size);
+	return window_.mapPixelToCoords(position, window_.getView());
 }
 
-void App::operator()(const sf::Event::MouseButtonPressed& data)
+void App::removeLayer(Layer* layer)
 {
-	auto coords = window_.mapPixelToCoords(data.position, window_.getView());
-	scene_->onMouseButtonPressed(coords, data.button);
-}
-
-void App::operator()(const sf::Event::MouseButtonReleased& data)
-{
-	auto coords = window_.mapPixelToCoords(data.position, window_.getView());
-	scene_->onMouseButtonReleased(coords, data.button);
-}
-
-void App::operator()(const sf::Event::KeyPressed& data)
-{
-	scene_->onKeyPressed(data.code);
+	auto it = layerStack_.begin();
+	while (it != layerStack_.end())
+	{
+		if (it->get() == layer)
+		{
+			it = layerStack_.erase(it);
+			return;
+		}
+		++it;
+	}
 }
