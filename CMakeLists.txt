@@ -13,7 +13,7 @@ FetchContent_Declare(SFML
 )
 FetchContent_MakeAvailable(SFML)
 
-add_executable(MinePlusPlus "src/MinePlusPlus.cpp" "src/Board.h" "src/Board.cpp" "src/Resources.h" "src/Layer/MinesweeperLayer.h" "src/Layer/MinesweeperLayer.cpp" "src/SFMLExtensions.h" "src/SFMLExtensions.cpp" "src/MyRandom.h" "src/App.h" "src/App.cpp" "src/Layer/MenuLayer.h" "src/Layer/MenuLayer.cpp" "src/Layer/Layer.h")
+add_executable(MinePlusPlus "src/MinePlusPlus.cpp" "src/Board.h" "src/Board.cpp" "src/Resources.h" "src/Layer/MinesweeperLayer.h" "src/Layer/MinesweeperLayer.cpp" "src/SFMLExtensions.h" "src/SFMLExtensions.cpp" "src/MyRandom.h" "src/App.h" "src/App.cpp" "src/Layer/MenuLayer.h" "src/Layer/MenuLayer.cpp" "src/Layer/Layer.h" "src/Layer/GameUILayer.h" "src/Layer/GameUILayer.cpp" "src/Event/EventBus.h" "src/Event/EventBus.cpp" "src/Event/MinesweeperEvents.h" "src/Layer/BaseUILayer.h" "src/Layer/BaseUILayer.cpp")
 target_include_directories(MinePlusPlus PRIVATE "${CMAKE_SOURCE_DIR}/src")
 
 set_property(TARGET MinePlusPlus PROPERTY CXX_STANDARD 20)
