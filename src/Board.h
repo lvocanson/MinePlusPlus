@@ -45,8 +45,12 @@ public:
 public:
 
 	Board();
+	Board(const Board&) = default;
+	Board(Board&&) noexcept = default;
+	Board& operator=(const Board&) = default;
+	Board& operator=(Board&&) noexcept = default;
 
-	bool isSizeValid(const Vec2s& size) const;
+	static bool isSizeValid(const Vec2s& size);
 	void resize(const Vec2s& size);
 	const Vec2s& getSize() const { return size_; }
 

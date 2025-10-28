@@ -88,13 +88,13 @@ Board::Board()
 {
 }
 
-bool Board::isSizeValid(const Vec2s& size) const
+bool Board::isSizeValid(const Vec2s& size)
 {
 	if (size.x && size.y)
 		// check overflow
 		return size.x < std::numeric_limits<std::size_t>::max() / size.y
 		// and respect max_size
-		&& size.x * size.y < cells_.max_size();
+		&& size.x * size.y < std::vector<Cell>().max_size();
 	return false;
 }
 
@@ -149,8 +149,6 @@ void Board::placeMines()
 		std::size_t index = cells_[r].mined ? i : r;
 		mineCell(index);
 	}
-
-	setupFrontline();
 }
 
 void Board::makeSafe(std::size_t index)
@@ -177,8 +175,6 @@ void Board::makeSafe(std::size_t index)
 	{
 		--cells_[toIndex(coordinates)].adjacentMines;
 	}
-
-	setupFrontline();
 }
 
 void Board::clear()
@@ -186,7 +182,7 @@ void Board::clear()
 	assert(isSizeValid(size_));
 	flagCount_ = openCount_ = 0;
 	cells_.assign(size_.x * size_.y, {});
-	begFrontline_ = endFrontline_ = 0;
+	setupFrontline();
 }
 
 bool Board::open(std::size_t index)
