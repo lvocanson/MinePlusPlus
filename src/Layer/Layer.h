@@ -12,8 +12,6 @@ class Layer
 {
 public:
 
-	bool isSuspended = false;
-
 	virtual ~Layer() = default;
 	virtual EventConsumed listenEvent(const sf::Event& event) { return EventConsumed::No; }
 	virtual void update(float dt) {}

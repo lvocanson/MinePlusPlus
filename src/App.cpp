@@ -19,7 +19,7 @@ int App::run()
 	{
 		while (auto event = window_.pollEvent())
 			for (auto it = layerStack_.rbegin(); it != layerStack_.rend(); ++it)
-				if (*it && !(*it)->isSuspended)
+				if (*it)
 				{
 					auto consumed = (*it)->listenEvent(*event);
 					if (consumed == EventConsumed::Yes)
@@ -31,13 +31,13 @@ int App::run()
 		lastFrame = now;
 
 		for (auto& layer : layerStack_)
-			if (layer && !layer->isSuspended)
+			if (layer)
 				layer->update(dt);
 
 		window_.clear(clearColor_);
 
 		for (auto& layer : layerStack_)
-			if (layer && !layer->isSuspended)
+			if (layer)
 				layer->render(window_);
 
 		window_.display();

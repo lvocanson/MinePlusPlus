@@ -51,6 +51,8 @@ public: // Layers
 		return nullptr;
 	}
 
+	void clearLayerStack() { layerStack_.clear(); }
+
 private:
 
 	static inline App* instance_{};
