@@ -25,6 +25,5 @@ private:
 private:
 
 	sf::Clock clock_;
-	class Board* board_;
 	std::size_t pressedCellIdx_;
 };

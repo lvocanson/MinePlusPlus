@@ -1,28 +1,22 @@
 #include "GameUILayer.h"
-#include "Board.h"
+#include "App.h"
 #include "Event/EventBus.h"
 #include "Event/MinesweeperEvents.h"
 #include <format>
-#include <App.h>
 
 GameUILayer::GameUILayer()
-	: board_{}
-	, pressedCellIdx_(-1)
+	: pressedCellIdx_(-1)
 {
 	isMouseWheelControllingZoom_ = true;
 	clock_.reset();
 
 	App::instance().setClearColor({0x79, 0x31, 0x32, 0x00});
+	auto& board = App::instance().getBoard();
+	board = Board::MediumBoard();
+	board.placeMines();
+	centerBoardOnView();
 
 	EventBus::publish(MinesweeperEvents::SetRenderMode{MinesweeperEvents::RenderMode::Classic});
-	EventBus::publish(MinesweeperEvents::BoardRequest{board_});
-
-	if (board_)
-	{
-		*board_ = Board::MediumBoard();
-		board_->placeMines();
-		centerBoardOnView();
-	}
 }
 
 EventConsumed GameUILayer::onPress(sf::Mouse::Button button, sf::Vector2f position)
@@ -32,13 +26,11 @@ EventConsumed GameUILayer::onPress(sf::Mouse::Button button, sf::Vector2f positi
 	case sf::Mouse::Button::Left:
 	case sf::Mouse::Button::Right:
 	{
-		if (!board_)
-			return EventConsumed::No;
-
+		auto& board = App::instance().getBoard();
 		Vec2s coo{std::size_t(position.x), std::size_t(position.y)};
-		if (board_->areCoordinatesValid(coo))
+		if (board.areCoordinatesValid(coo))
 		{
-			pressedCellIdx_ = board_->toIndex(coo);
+			pressedCellIdx_ = board.toIndex(coo);
 			EventBus::publish(MinesweeperEvents::SetSelectedCell{pressedCellIdx_});
 			return EventConsumed::Yes;
 		}
@@ -63,34 +55,32 @@ EventConsumed GameUILayer::onRelease(sf::Mouse::Button button, sf::Vector2f posi
 	case sf::Mouse::Button::Left:
 	case sf::Mouse::Button::Right:
 	{
-		if (!board_)
-			return EventConsumed::No;
-
 		auto pressedCellIdx = std::exchange(pressedCellIdx_, -1);
 		EventBus::publish(MinesweeperEvents::SetSelectedCell{pressedCellIdx_});
 
+		auto& board = App::instance().getBoard();
 		Vec2s coo{std::size_t(position.x), std::size_t(position.y)};
-		if (!board_->areCoordinatesValid(coo))
+		if (!board.areCoordinatesValid(coo))
 			return EventConsumed::No;
 
 		// Only continue if we release the mouse on the previously pressed cell
-		if (pressedCellIdx != board_->toIndex(coo))
+		if (pressedCellIdx != board.toIndex(coo))
 			return EventConsumed::Yes;
 
 		if (button == sf::Mouse::Button::Right)
 		{
-			board_->flag(pressedCellIdx);
+			board.flag(pressedCellIdx);
 			return EventConsumed::Yes;
 		}
 
-		if (board_->getOpenCount() == 0) // first click
+		if (board.getOpenCount() == 0) // first click
 		{
-			board_->makeSafe(pressedCellIdx);
+			board.makeSafe(pressedCellIdx);
 			clock_.restart();
 		}
 
-		bool lost = board_->open(pressedCellIdx);
-		if (lost || board_->isWon())
+		bool lost = board.open(pressedCellIdx);
+		if (lost || board.isWon())
 		{
 			EventBus::publish(MinesweeperEvents::SetRenderMode{MinesweeperEvents::RenderMode::RevealAll});
 			clock_.stop();
@@ -111,20 +101,16 @@ EventConsumed GameUILayer::onRelease(sf::Mouse::Button button, sf::Vector2f posi
 
 void GameUILayer::restart()
 {
-	if (board_)
-	{
-		board_->clear();
-		board_->placeMines();
-	}
+	auto& board = App::instance().getBoard();
+	board.clear();
+	board.placeMines();
 	clock_.reset();
 }
 
 void GameUILayer::centerBoardOnView()
 {
-	if (!board_)
-		return;
-
-	sf::Vector2f size = {float(board_->getSize().x), float(board_->getSize().y)};
+	auto& board = App::instance().getBoard();
+	sf::Vector2f size = {float(board.getSize().x), float(board.getSize().y)};
 	sf::Vector2f center = {float(size.x) * .5f, float(size.y) * .5f};
 
 	auto windowSize = sf::Vector2f(App::instance().getWindowSize());
@@ -140,8 +126,8 @@ void GameUILayer::centerBoardOnView()
 
 void GameUILayer::render(sf::RenderTarget& target) const
 {
-	std::make_signed_t<std::size_t> minesLeft = board_
-		? board_->getMineCount() - board_->getFlagCount() : 0;
+	auto& board = App::instance().getBoard();
+	std::make_signed_t<std::size_t> minesLeft = board.getMineCount() - board.getFlagCount();
 	float bestTime = std::numeric_limits<float>::signaling_NaN(); // TODO
 	auto timeInSeconds = clock_.getElapsedTime().asMicroseconds() / 1'000'000;
 	auto str = std::format("Mines left: {}\nBest time: {}\nTime: {}s",

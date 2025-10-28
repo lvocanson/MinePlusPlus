@@ -1,4 +1,5 @@
 #pragma once
+#include "Board.h"
 #include "Layer/Layer.h"
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <concepts>
@@ -53,10 +54,16 @@ public: // Layers
 
 	void clearLayerStack() { layerStack_.clear(); }
 
+public: // Board
+
+	Board& getBoard() { return board_; }
+	const Board& getBoard() const { return board_; }
+
 private:
 
 	static inline App* instance_{};
 	sf::RenderWindow window_;
 	sf::Color clearColor_;
+	Board board_;
 	std::vector<std::unique_ptr<Layer>> layerStack_;
 };

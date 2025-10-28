@@ -1,4 +1,5 @@
 #include "MinesweeperLayer.h"
+#include "App.h"
 #include "Resources.h"
 #include "Event/EventBus.h"
 #include "SFMLExtensions.h"
@@ -10,7 +11,6 @@ MinesweeperLayer::MinesweeperLayer()
 	, renderMode_()
 {
 	auto handle = EventBus::SubscriptionHandle(this);
-	EventBus::subscribe<BoardRequest>([this](const BoardRequest& event) { event.board = &board_; }, handle);
 	EventBus::subscribe<SetSelectedCell>([this](const SetSelectedCell& event) { selectedCell_ = event.cell; }, handle);
 	EventBus::subscribe<SetRenderMode>([this](const SetRenderMode& event) { renderMode_ = event.mode; }, handle);
 }
@@ -18,7 +18,6 @@ MinesweeperLayer::MinesweeperLayer()
 MinesweeperLayer::~MinesweeperLayer()
 {
 	auto handle = EventBus::SubscriptionHandle(this);
-	EventBus::unsubscribe<BoardRequest>(handle);
 	EventBus::unsubscribe<SetSelectedCell>(handle);
 	EventBus::unsubscribe<SetRenderMode>(handle);
 }
@@ -28,10 +27,11 @@ void MinesweeperLayer::render(sf::RenderTarget& target) const
 	if (renderMode_ == RenderMode::Off)
 		return;
 
-	for (std::size_t index = 0; index < board_.getCells().size(); ++index)
+	auto& board = App::instance().getBoard();
+	for (std::size_t index = 0; index < board.getCells().size(); ++index)
 	{
 		const sf::Texture* texture = nullptr;
-		auto& cell = board_.getCellAt(index);
+		auto& cell = board.getCellAt(index);
 
 		if (cell.flagged)
 		{
@@ -75,7 +75,7 @@ void MinesweeperLayer::render(sf::RenderTarget& target) const
 
 		assert(texture);
 
-		auto [x, y] = board_.toCoordinates(index);
+		auto [x, y] = board.toCoordinates(index);
 		const sf::FloatRect rect{{float(x), float(y)}, {1.f, 1.f}};
 		SFMLExtensions::drawTexture(target, *texture, rect);
 	}
