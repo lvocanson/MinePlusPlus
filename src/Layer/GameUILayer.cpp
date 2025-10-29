@@ -143,7 +143,8 @@ void GameUILayer::render(sf::RenderTarget& target) const
 	sf::Vector2f viewSize = view.getSize();
 	auto targetSize = sf::Vector2f(target.getSize());
 
-	text.setPosition(viewCenter - viewSize * .5f);
+	text.setPosition(target.mapPixelToCoords({0, 0}));
+	text.setRotation(view.getRotation());
 	text.setScale(viewSize.componentWiseDiv(targetSize));
 
 	target.draw(text);

@@ -1,8 +1,29 @@
 #include "App.h"
 #include <chrono>
+#include <iostream>
+#include <SFML/Graphics/RenderTexture.hpp>
+
+namespace
+{
+
+sf::Vector2u getDefaultWindowSize()
+{
+	sf::Vector2u screenSize = sf::VideoMode::getDesktopMode().size;
+	return sf::Vector2u(sf::Vector2f(screenSize) * 0.75f);
+}
+
+sf::ContextSettings getDefaultContextSettings()
+{
+	return sf::ContextSettings
+	{
+		.antiAliasingLevel = sf::RenderTexture::getMaximumAntiAliasingLevel()
+	};
+}
+
+} // namespace
 
 App::App()
-	: window_(sf::VideoMode({900, 600}), "Mine++")
+	: window_(sf::VideoMode(getDefaultWindowSize()), "Mine++", sf::State::Windowed, getDefaultContextSettings())
 	, clearColor_(sf::Color::Magenta)
 {
 	if (instance_)
@@ -27,7 +48,7 @@ int App::run()
 				}
 
 		auto now = std::chrono::steady_clock::now();
-		float dt = std::chrono::duration_cast<std::chrono::nanoseconds>(now - lastFrame).count() / 1e6f;
+		float dt = std::chrono::duration_cast<std::chrono::nanoseconds>(now - lastFrame).count() / 1e9f;
 		lastFrame = now;
 
 		for (auto& layer : layerStack_)

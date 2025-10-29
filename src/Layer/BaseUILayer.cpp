@@ -32,7 +32,7 @@ struct BaseUILayer::EventDispatcher
 			// Assuming view and windowSize have the same aspect ratio
 			float viewRatio = view.getSize().x / windowSize.x;
 			auto offset = -(sensitivity * viewRatio) * sf::Vector2f(event.delta);
-			view.move(offset);
+			view.move(offset.rotatedBy(view.getRotation()));
 			App::instance().setView(view);
 			return EventConsumed::Yes;
 		}
@@ -58,7 +58,7 @@ struct BaseUILayer::EventDispatcher
 			constexpr float sensitivity = -0.1f;
 			float factor = std::pow(2.f, event.delta * sensitivity);
 			sf::View view = App::instance().getView();
-			view.setSize(view.getSize() * factor);
+			view.zoom(factor);
 			App::instance().setView(view);
 			return EventConsumed::Yes;
 		}
