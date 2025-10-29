@@ -1,4 +1,4 @@
-#include "MinesweeperLayer.h"
+#include "BoardRenderer.h"
 #include "App.h"
 #include "Resources.h"
 #include "Event/EventBus.h"
@@ -6,7 +6,7 @@
 
 using namespace MinesweeperEvents;
 
-MinesweeperLayer::MinesweeperLayer()
+BoardRenderer::BoardRenderer()
 	: selectedCell_(-1)
 	, renderMode_()
 {
@@ -15,14 +15,14 @@ MinesweeperLayer::MinesweeperLayer()
 	EventBus::subscribe<SetRenderMode>([this](const SetRenderMode& event) { renderMode_ = event.mode; }, handle);
 }
 
-MinesweeperLayer::~MinesweeperLayer()
+BoardRenderer::~BoardRenderer()
 {
 	auto handle = EventBus::SubscriptionHandle(this);
 	EventBus::unsubscribe<SetSelectedCell>(handle);
 	EventBus::unsubscribe<SetRenderMode>(handle);
 }
 
-void MinesweeperLayer::render(sf::RenderTarget& target) const
+void BoardRenderer::render(sf::RenderTarget& target) const
 {
 	if (renderMode_ == RenderMode::Off)
 		return;

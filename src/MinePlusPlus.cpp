@@ -1,11 +1,11 @@
 ﻿#include "App.h"
-#include "Layer/MinesweeperLayer.h"
+#include "Layer/BoardRenderer.h"
 #include "Layer/GameUILayer.h"
 
 int main()
 {
 	App app;
-	app.pushLayer<MinesweeperLayer>();
+	app.pushLayer<BoardRenderer>();
 	app.pushLayer<GameUILayer>();
 	return app.run();
 }

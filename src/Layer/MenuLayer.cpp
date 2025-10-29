@@ -1,5 +1,5 @@
 #include "MenuLayer.h"
-#include "MinesweeperLayer.h"
+#include "BoardRenderer.h"
 
 EventConsumed MenuLayer::listenEvent(const sf::Event& event)
 {

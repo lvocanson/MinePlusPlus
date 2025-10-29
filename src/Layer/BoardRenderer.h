@@ -5,13 +5,13 @@
 /**
  * Renders the minesweeper board.
  */
-class MinesweeperLayer : public Layer
+class BoardRenderer : public Layer
 {
 
 public:
 
-	MinesweeperLayer();
-	~MinesweeperLayer();
+	BoardRenderer();
+	~BoardRenderer();
 
 private:
 
