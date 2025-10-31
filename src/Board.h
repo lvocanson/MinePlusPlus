@@ -96,7 +96,7 @@ private:
 	void setupFrontline();
 	std::size_t biggestFrontline() const;
 
-	bool isFrontlinePushing() const;
+	bool isFrontlineEmpty() const;
 	void pushFrontline(std::size_t index);
 	std::size_t popFrontline();
 

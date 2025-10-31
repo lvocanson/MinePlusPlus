@@ -232,7 +232,7 @@ bool Board::open(std::size_t index)
 	// BFS algorithm. We maintain a 'frontline', expanding towards closed and
 	// no adjacentMines cells. A 'frontline' cell is a cell that will soon be
 	// opened, to avoid duplicates in the frontline_ queue/circular array.
-	while (isFrontlinePushing())
+	while (!isFrontlineEmpty())
 	{
 		index = popFrontline();
 		auto& cell = cells_[index];
@@ -308,9 +308,9 @@ std::size_t Board::biggestFrontline() const
 	return std::min(size_.x, size_.y) * 4 - 2;
 }
 
-bool Board::isFrontlinePushing() const
+bool Board::isFrontlineEmpty() const
 {
-	return begFrontline_ != endFrontline_;
+	return begFrontline_ == endFrontline_;
 }
 
 void Board::pushFrontline(std::size_t index)
@@ -352,7 +352,7 @@ void Board::pushFrontline(std::size_t index)
 
 std::size_t Board::popFrontline()
 {
-	assert(isFrontlinePushing());
+	assert(!isFrontlineEmpty());
 	assert(begFrontline_ < frontline_.size());
 	std::size_t index = frontline_[begFrontline_];
 	begFrontline_ = (begFrontline_ + 1) % frontline_.size();
