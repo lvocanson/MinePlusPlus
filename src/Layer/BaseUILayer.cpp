@@ -13,12 +13,12 @@ struct BaseUILayer::EventDispatcher
 	{
 		// Change the view aspect ratio to match the window
 		auto size = sf::Vector2f(event.size);
-		sf::View view = App::instance().getView();
+		sf::View view = App::instance().window.getView();
 		sf::Vector2f viewSize = view.getSize();
 		float ratio = (viewSize.x * size.y) / (size.x * viewSize.y);
 		viewSize.y *= ratio;
 		view.setSize(viewSize);
-		App::instance().setView(view);
+		App::instance().window.setView(view);
 		return EventConsumed::Yes;
 	}
 
@@ -27,13 +27,13 @@ struct BaseUILayer::EventDispatcher
 		if (self.isMouseDraggingCamera_)
 		{
 			constexpr float sensitivity = 1.f;
-			sf::View view = App::instance().getView();
-			auto windowSize = sf::Vector2f(App::instance().getWindowSize());
+			sf::View view = App::instance().window.getView();
+			auto windowSize = sf::Vector2f(App::instance().window.getSize());
 			// Assuming view and windowSize have the same aspect ratio
 			float viewRatio = view.getSize().x / windowSize.x;
 			auto offset = -(sensitivity * viewRatio) * sf::Vector2f(event.delta);
 			view.move(offset.rotatedBy(view.getRotation()));
-			App::instance().setView(view);
+			App::instance().window.setView(view);
 			return EventConsumed::Yes;
 		}
 		return EventConsumed::No;
@@ -41,13 +41,13 @@ struct BaseUILayer::EventDispatcher
 
 	EventConsumed operator()(const sf::Event::MouseButtonPressed& event)
 	{
-		sf::Vector2f position = App::instance().screenToWorld(event.position);
+		sf::Vector2f position = App::instance().window.mapPixelToCoords(event.position);
 		return self.onPress(event.button, position);
 	}
 
 	EventConsumed operator()(const sf::Event::MouseButtonReleased& event)
 	{
-		sf::Vector2f position = App::instance().screenToWorld(event.position);
+		sf::Vector2f position = App::instance().window.mapPixelToCoords(event.position);
 		return self.onRelease(event.button, position);
 	}
 
@@ -57,9 +57,9 @@ struct BaseUILayer::EventDispatcher
 		{
 			constexpr float sensitivity = -0.1f;
 			float factor = std::pow(2.f, event.delta * sensitivity);
-			sf::View view = App::instance().getView();
+			sf::View view = App::instance().window.getView();
 			view.zoom(factor);
-			App::instance().setView(view);
+			App::instance().window.setView(view);
 			return EventConsumed::Yes;
 		}
 		return EventConsumed::No;
@@ -73,7 +73,7 @@ struct BaseUILayer::EventDispatcher
 	BaseUILayer& self;
 };
 
-EventConsumed BaseUILayer::listenEvent(const sf::Event& event)
+EventConsumed BaseUILayer::handleEvent(const sf::Event& event)
 {
 	return event.visit(EventDispatcher{*this});
 }

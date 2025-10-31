@@ -1,69 +1,29 @@
 #pragma once
 #include "Board.h"
-#include "Layer/Layer.h"
+#include "Layer/LayerStack.h"
+#include "Event/EventBus.h"
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <concepts>
 #include <vector>
 
 class App
 {
+	static inline App* instance_{};
+
 public:
 
 	App();
 	int run();
 	void exit();
+	~App();
+
 	static App& instance() { return *instance_; }
 
-public: // Window
+public:
 
-	sf::Vector2u getWindowSize() const { return window_.getSize(); }
-
-	const sf::View& getView() const { return window_.getView(); }
-	void setView(const sf::View& view) { return window_.setView(view); }
-
-	void setClearColor(sf::Color color) { clearColor_ = color; }
-	sf::Vector2f screenToWorld(sf::Vector2i position);
-
-public: // Layers
-
-	template <std::derived_from<Layer> T, class... Args>
-	T* pushLayer(Args&&... args)
-	{
-		std::unique_ptr unique = std::make_unique<T>(std::forward<Args>(args)...);
-		T* ptr = unique.get();
-		layerStack_.emplace_back(std::move(unique));
-		return ptr;
-	}
-
-	void removeLayer(Layer* layer);
-
-	template <std::derived_from<Layer> T, class... Args>
-	T* swapLayer(Layer* toRemove, Args&&... args)
-	{
-		for (auto& layer : layerStack_)
-			if (layer.get() == toRemove)
-			{
-				std::unique_ptr unique = std::make_unique<T>(std::forward<Args>(args)...);
-				T* ptr = unique.get();
-				layer = std::move(unique);
-				return ptr;
-			}
-
-		return nullptr;
-	}
-
-	void clearLayerStack() { layerStack_.clear(); }
-
-public: // Board
-
-	Board& getBoard() { return board_; }
-	const Board& getBoard() const { return board_; }
-
-private:
-
-	static inline App* instance_{};
-	sf::RenderWindow window_;
-	sf::Color clearColor_;
-	Board board_;
-	std::vector<std::unique_ptr<Layer>> layerStack_;
+	sf::RenderWindow window;
+	sf::Color clearColor;
+	Board board;
+	LayerStack layerStack;
+	EventBus eventBus;
 };

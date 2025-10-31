@@ -13,7 +13,7 @@ class Layer
 public:
 
 	virtual ~Layer() = default;
-	virtual EventConsumed listenEvent(const sf::Event& event) { return EventConsumed::No; }
+	virtual EventConsumed handleEvent(const sf::Event& event) { return EventConsumed::No; }
 	virtual void update(float dt) {}
 	virtual void render(sf::RenderTarget& target) const {}
 };

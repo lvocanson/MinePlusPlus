@@ -1,7 +1,6 @@
 #include "BoardRenderer.h"
 #include "App.h"
 #include "Resources.h"
-#include "Event/EventBus.h"
 #include "SFMLExtensions.h"
 
 using namespace MinesweeperEvents;
@@ -11,15 +10,15 @@ BoardRenderer::BoardRenderer()
 	, renderMode_()
 {
 	auto handle = EventBus::SubscriptionHandle(this);
-	EventBus::subscribe<SetSelectedCell>([this](const SetSelectedCell& event) { selectedCell_ = event.cell; }, handle);
-	EventBus::subscribe<SetRenderMode>([this](const SetRenderMode& event) { renderMode_ = event.mode; }, handle);
+	App::instance().eventBus.subscribe<SetSelectedCell>([this](const SetSelectedCell& event) { selectedCell_ = event.cell; }, handle);
+	App::instance().eventBus.subscribe<SetRenderMode>([this](const SetRenderMode& event) { renderMode_ = event.mode; }, handle);
 }
 
 BoardRenderer::~BoardRenderer()
 {
 	auto handle = EventBus::SubscriptionHandle(this);
-	EventBus::unsubscribe<SetSelectedCell>(handle);
-	EventBus::unsubscribe<SetRenderMode>(handle);
+	App::instance().eventBus.unsubscribe<SetSelectedCell>(handle);
+	App::instance().eventBus.unsubscribe<SetRenderMode>(handle);
 }
 
 void BoardRenderer::render(sf::RenderTarget& target) const
@@ -27,7 +26,7 @@ void BoardRenderer::render(sf::RenderTarget& target) const
 	if (renderMode_ == RenderMode::Off)
 		return;
 
-	auto& board = App::instance().getBoard();
+	auto& board = App::instance().board;
 	for (std::size_t index = 0; index < board.getCells().size(); ++index)
 	{
 		const sf::Texture* texture = nullptr;

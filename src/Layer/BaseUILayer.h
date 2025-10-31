@@ -14,7 +14,7 @@ protected:
 	bool isMouseDraggingCamera_ = false;
 	bool isMouseWheelControllingZoom_ = false;
 
-	EventConsumed listenEvent(const sf::Event& event) override;
+	EventConsumed handleEvent(const sf::Event& event) override;
 
 	virtual EventConsumed onPress(sf::Mouse::Button button, sf::Vector2f position) { return EventConsumed::No; }
 	virtual EventConsumed onRelease(sf::Mouse::Button button, sf::Vector2f position) { return EventConsumed::No; }

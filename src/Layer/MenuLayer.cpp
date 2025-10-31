@@ -1,7 +1,7 @@
 #include "MenuLayer.h"
 #include "BoardRenderer.h"
 
-EventConsumed MenuLayer::listenEvent(const sf::Event& event)
+EventConsumed MenuLayer::handleEvent(const sf::Event& event)
 {
 	return EventConsumed();
 }

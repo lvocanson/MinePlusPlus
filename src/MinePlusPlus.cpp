@@ -5,7 +5,7 @@
 int main()
 {
 	App app;
-	app.pushLayer<BoardRenderer>();
-	app.pushLayer<GameUILayer>();
+	app.layerStack.push(std::make_unique<BoardRenderer>());
+	app.layerStack.push(std::make_unique<GameUILayer>());
 	return app.run();
 }

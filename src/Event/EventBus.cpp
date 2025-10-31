@@ -1,25 +1,6 @@
 #include "EventBus.h"
-#include <unordered_map>
-#include <vector>
-#include <algorithm>
 
-namespace EventBus
-{
-
-namespace
-{
-
-struct Subscription
-{
-	GenericSubscriber subscriber;
-	SubscriptionHandle handle;
-};
-
-std::unordered_map<EventId, std::vector<Subscription>> subscriptions_;
-
-}
-
-void subscribe(GenericSubscriber subscriber, SubscriptionHandle handle, EventId eventId)
+void EventBus::subscribe(GenericSubscriber subscriber, SubscriptionHandle handle, EventId eventId)
 {
 	auto& subs = subscriptions_[eventId];
 	for (auto& sub : subs)
@@ -33,7 +14,7 @@ void subscribe(GenericSubscriber subscriber, SubscriptionHandle handle, EventId 
 	subs.emplace_back(subscriber, handle);
 }
 
-void unsubscribe(SubscriptionHandle handle, EventId eventId)
+void EventBus::unsubscribe(SubscriptionHandle handle, EventId eventId)
 {
 	auto& subs = subscriptions_[eventId];
 	for (auto it = subs.begin(); it != subs.end(); ++it)
@@ -46,7 +27,7 @@ void unsubscribe(SubscriptionHandle handle, EventId eventId)
 	}
 }
 
-void publish(EventId eventId, const void* eventData)
+void EventBus::publish(EventId eventId, const void* eventData)
 {
 	auto& subs = subscriptions_[eventId];
 	for (auto& sub : subs)
@@ -54,6 +35,3 @@ void publish(EventId eventId, const void* eventData)
 		sub.subscriber(eventData);
 	}
 }
-
-}
-
