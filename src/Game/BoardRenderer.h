@@ -1,6 +1,5 @@
 #pragma once
-#include "Layer.h"
-#include "Event/MinesweeperEvents.h"
+#include "Layer/Layer.h"
 
 /**
  * Renders the minesweeper board.
@@ -11,14 +10,13 @@ class BoardRenderer : public Layer
 public:
 
 	BoardRenderer();
-	~BoardRenderer();
 
 private:
 
+	EventConsumed handleEvent(const sf::Event& event) override;
 	void render(sf::RenderTarget& target) const override;
 
 private:
 
-	std::size_t selectedCell_;
-	MinesweeperEvents::RenderMode renderMode_;
+	bool cheat_;
 };

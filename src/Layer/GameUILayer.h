@@ -1,7 +1,6 @@
 #pragma once
 #include "BaseUILayer.h"
 #include "Resources.h"
-#include <SFML/System/Clock.hpp>
 
 class GameUILayer : public BaseUILayer
 {
@@ -21,9 +20,4 @@ private:
 	void centerBoardOnView();
 
 	void render(sf::RenderTarget& target) const override;
-
-private:
-
-	sf::Clock clock_;
-	std::size_t pressedCellIdx_;
 };

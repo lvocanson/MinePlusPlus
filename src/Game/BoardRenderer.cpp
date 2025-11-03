@@ -3,30 +3,32 @@
 #include "Resources.h"
 #include "Utils/SFMLExtensions.h"
 
-using namespace MinesweeperEvents;
 
 BoardRenderer::BoardRenderer()
-	: selectedCell_(-1)
-	, renderMode_()
+	: cheat_()
 {
-	auto handle = EventBus::SubscriptionHandle(this);
-	App::instance().eventBus.subscribe<SetSelectedCell>([this](const SetSelectedCell& event) { selectedCell_ = event.cell; }, handle);
-	App::instance().eventBus.subscribe<SetRenderMode>([this](const SetRenderMode& event) { renderMode_ = event.mode; }, handle);
 }
 
-BoardRenderer::~BoardRenderer()
+EventConsumed BoardRenderer::handleEvent(const sf::Event& event)
 {
-	auto handle = EventBus::SubscriptionHandle(this);
-	App::instance().eventBus.unsubscribe<SetSelectedCell>(handle);
-	App::instance().eventBus.unsubscribe<SetRenderMode>(handle);
+	auto* pressed = event.getIf<sf::Event::KeyPressed>();
+	if (pressed && pressed->code == sf::Keyboard::Key::C)
+	{
+		cheat_ = !cheat_;
+		return EventConsumed::Yes;
+	}
+	return EventConsumed::No;
 }
 
 void BoardRenderer::render(sf::RenderTarget& target) const
 {
-	if (renderMode_ == RenderMode::Off)
-		return;
+	auto& game = App::instance().game;
+	bool reveal = cheat_ || game.isGameOver();
+	auto& board = game.getBoard();
+	auto& pressedCell = game.getPressedCell();
+	std::size_t pressedCellIndex = board.areCoordinatesValid(pressedCell)
+		? board.toIndex(pressedCell) : -1;
 
-	auto& board = App::instance().board;
 	for (std::size_t index = 0; index < board.getCells().size(); ++index)
 	{
 		const sf::Texture* texture = nullptr;
@@ -34,16 +36,16 @@ void BoardRenderer::render(sf::RenderTarget& target) const
 
 		if (cell.flagged)
 		{
-			texture = (renderMode_ == RenderMode::RevealAll && !cell.mined)
+			texture = (reveal && !cell.mined)
 				? &Resources::Textures::openedCellNoMine
 				: &Resources::Textures::unopenedFlaggedCell;
 		}
 
 		else if (!cell.opened)
 		{
-			texture = (renderMode_ == RenderMode::RevealAll && cell.mined)
+			texture = (reveal && cell.mined)
 				? &Resources::Textures::openedCellMine
-				: (selectedCell_ == index)
+				: (pressedCellIndex == index)
 				? &Resources::Textures::unopenedSelectedCell
 				: &Resources::Textures::unopenedCell;
 		}

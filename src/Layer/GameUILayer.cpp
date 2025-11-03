@@ -1,21 +1,14 @@
 #include "GameUILayer.h"
 #include "App.h"
-#include "Event/MinesweeperEvents.h"
 #include <format>
 
 GameUILayer::GameUILayer()
-	: pressedCellIdx_(-1)
 {
 	isMouseWheelControllingZoom_ = true;
-	clock_.reset();
 
 	App::instance().clearColor = {0x79, 0x31, 0x32, 0x00};
-	auto& board = App::instance().board;
-	board = Board::MediumBoard();
-	board.placeMines();
+	App::instance().game.setMedium();
 	centerBoardOnView();
-
-	App::instance().eventBus.publish(MinesweeperEvents::SetRenderMode{MinesweeperEvents::RenderMode::Classic});
 }
 
 EventConsumed GameUILayer::onPress(sf::Mouse::Button button, sf::Vector2f position)
@@ -25,12 +18,11 @@ EventConsumed GameUILayer::onPress(sf::Mouse::Button button, sf::Vector2f positi
 	case sf::Mouse::Button::Left:
 	case sf::Mouse::Button::Right:
 	{
-		auto& board = App::instance().board;
+		auto& board = App::instance().game.getBoard();
 		Vec2s coo{std::size_t(position.x), std::size_t(position.y)};
 		if (board.areCoordinatesValid(coo))
 		{
-			pressedCellIdx_ = board.toIndex(coo);
-			App::instance().eventBus.publish(MinesweeperEvents::SetSelectedCell{pressedCellIdx_});
+			App::instance().game.setPressedCell(coo);
 			return EventConsumed::Yes;
 		}
 	}
@@ -54,36 +46,25 @@ EventConsumed GameUILayer::onRelease(sf::Mouse::Button button, sf::Vector2f posi
 	case sf::Mouse::Button::Left:
 	case sf::Mouse::Button::Right:
 	{
-		auto pressedCellIdx = std::exchange(pressedCellIdx_, -1);
-		App::instance().eventBus.publish(MinesweeperEvents::SetSelectedCell{pressedCellIdx_});
+		auto& game = App::instance().game;
+		Vec2s pressedCell = game.getPressedCell();
+		game.setPressedCell(INVALID_VEC2S);
 
-		auto& board = App::instance().board;
+		auto& board = game.getBoard();
 		Vec2s coo{std::size_t(position.x), std::size_t(position.y)};
-		if (!board.areCoordinatesValid(coo))
-			return EventConsumed::No;
 
 		// Only continue if we release the mouse on the previously pressed cell
-		if (pressedCellIdx != board.toIndex(coo))
+		if (pressedCell != coo)
 			return EventConsumed::Yes;
 
 		if (button == sf::Mouse::Button::Right)
 		{
-			board.flag(pressedCellIdx);
+			game.flag(coo);
 			return EventConsumed::Yes;
 		}
 
-		if (board.getOpenCount() == 0) // first click
-		{
-			board.makeSafe(pressedCellIdx);
-			clock_.restart();
-		}
-
-		bool lost = board.open(pressedCellIdx);
-		if (lost || board.isWon())
-		{
-			App::instance().eventBus.publish(MinesweeperEvents::SetRenderMode{MinesweeperEvents::RenderMode::RevealAll});
-			clock_.stop();
-		}
+		game.open(coo);
+		return EventConsumed::Yes;
 	}
 	break;
 
@@ -100,15 +81,12 @@ EventConsumed GameUILayer::onRelease(sf::Mouse::Button button, sf::Vector2f posi
 
 void GameUILayer::restart()
 {
-	auto& board = App::instance().board;
-	board.clear();
-	board.placeMines();
-	clock_.reset();
+	App::instance().game.restart();
 }
 
 void GameUILayer::centerBoardOnView()
 {
-	auto& board = App::instance().board;
+	auto& board = App::instance().game.getBoard();
 	sf::Vector2f size = {float(board.getSize().x), float(board.getSize().y)};
 	sf::Vector2f center = {float(size.x) * .5f, float(size.y) * .5f};
 
@@ -122,13 +100,12 @@ void GameUILayer::centerBoardOnView()
 	App::instance().window.setView(view);
 }
 
-
 void GameUILayer::render(sf::RenderTarget& target) const
 {
-	auto& board = App::instance().board;
+	auto& board = App::instance().game.getBoard();
 	std::make_signed_t<std::size_t> minesLeft = board.getMineCount() - board.getFlagCount();
 	float bestTime = std::numeric_limits<float>::signaling_NaN(); // TODO
-	auto timeInSeconds = clock_.getElapsedTime().asMicroseconds() / 1'000'000;
+	auto timeInSeconds = App::instance().game.getPlayingTime().asMicroseconds() / 1'000'000;
 	auto str = std::format("Mines left: {}\nBest time: {}\nTime: {}s",
 		minesLeft, bestTime, timeInSeconds);
 

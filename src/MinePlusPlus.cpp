@@ -1,5 +1,5 @@
 ﻿#include "App.h"
-#include "Layer/BoardRenderer.h"
+#include "Game/BoardRenderer.h"
 #include "Layer/GameUILayer.h"
 
 int main()

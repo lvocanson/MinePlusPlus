@@ -1,7 +1,6 @@
 #pragma once
-#include "Board.h"
+#include "Game/Minesweeper.h"
 #include "Layer/LayerStack.h"
-#include "Event/EventBus.h"
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <concepts>
 #include <vector>
@@ -23,7 +22,6 @@ public:
 
 	sf::RenderWindow window;
 	sf::Color clearColor;
-	Board board;
+	Minesweeper game;
 	LayerStack layerStack;
-	EventBus eventBus;
 };
