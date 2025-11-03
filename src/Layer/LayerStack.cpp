@@ -1,9 +1,56 @@
 #include "LayerStack.h"
+#include "Utils/Overloaded.h"
+
+namespace
+{
+template <class T> struct MissingCommand : std::false_type {};
+}
+
+void LayerStack::processAsyncCommands()
+{
+	for (auto& command : commandQueue_) std::visit(Overloaded
+		{
+			[this](Clear& cmd)
+			{
+				layerStack_.clear();
+			},
+			[this](Push& cmd)
+			{
+				layerStack_.emplace_back(std::move(cmd.layer));
+			},
+			[this](Swap& cmd)
+			{
+				for (auto& layer : layerStack_)
+					if (layer.get() == cmd.layer)
+					{
+						layer = std::move(cmd.substitute);
+						return;
+					}
+			},
+			[this](Remove& cmd)
+			{
+				auto it = layerStack_.begin();
+				while (it != layerStack_.end())
+				{
+					if (it->get() == cmd.layer)
+					{
+						it = layerStack_.erase(it);
+						return;
+					}
+					++it;
+				}
+			},
+			[](const auto&)
+			{
+				static_assert(false, "Missing command implementation.");
+			}
+		}, command);
+	commandQueue_.clear();
+}
 
 void LayerStack::handleEvent(const sf::Event& event)
 {
-	std::size_t size = layerStack_.size();
-	for (std::size_t i = size - 1; i < size; --i)
+	for (std::size_t i = layerStack_.size(); i-- > 0;)
 	{
 		auto& layer = layerStack_[i];
 		auto consumed = layer->handleEvent(event);
@@ -24,29 +71,4 @@ void LayerStack::render(sf::RenderTarget& target) const
 	for (auto& layer : layerStack_)
 		if (layer)
 			layer->render(target);
-}
-
-void LayerStack::swap(Layer* layer, std::unique_ptr<Layer>&& substitute)
-{
-	std::size_t size = layerStack_.size();
-	for (std::size_t i = 0; i < size; ++i)
-		if (layerStack_[i].get() == layer)
-		{
-			layerStack_[i] = std::move(substitute);
-			return;
-		}
-}
-
-void LayerStack::remove(Layer* layer)
-{
-	auto it = layerStack_.begin();
-	while (it != layerStack_.end())
-	{
-		if (it->get() == layer)
-		{
-			it = layerStack_.erase(it);
-			return;
-		}
-		++it;
-	}
 }

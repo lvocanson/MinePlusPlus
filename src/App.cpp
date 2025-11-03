@@ -38,6 +38,8 @@ int App::run()
 	auto lastFrame = std::chrono::steady_clock::now();
 	while (window.isOpen())
 	{
+		layerStack.processAsyncCommands();
+
 		while (auto event = window.pollEvent())
 			layerStack.handleEvent(*event);
 
@@ -62,5 +64,6 @@ void App::exit()
 App::~App()
 {
 	// Delete layers before calling destructors of other members
-	layerStack.clear();
+	layerStack.scheduleAsyncCommand<LayerStack::Clear>();
+	layerStack.processAsyncCommands();
 }
