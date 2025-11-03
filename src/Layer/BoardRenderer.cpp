@@ -1,7 +1,7 @@
 #include "BoardRenderer.h"
 #include "App.h"
 #include "Resources.h"
-#include "SFMLExtensions.h"
+#include "Utils/SFMLExtensions.h"
 
 using namespace MinesweeperEvents;
 

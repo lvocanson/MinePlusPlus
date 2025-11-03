@@ -1,5 +1,5 @@
 #include "Board.h"
-#include "MyRandom.h"
+#include "Utils/MyRandom.h"
 #include <algorithm>
 #include <cassert>
 
