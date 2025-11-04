@@ -4,6 +4,8 @@
 #include "Game/BoardRenderer.h"
 #include "Game/MinesweeperInput.h"
 #include "Game/UserInterface.h"
+#include "Game/Modes/SpinningMode.h"
+#include "Game/Modes/RunningBombMode.h"
 
 namespace
 {
@@ -11,20 +13,33 @@ namespace
 constexpr sf::Vector2i BUTTON_SIZE = {150, 28};
 constexpr sf::Vector2i ELEMENTS_GAP = {200, 60};
 
-constexpr std::string_view DEFAULT_GAME_MODE_TITLE = "Default";
-constexpr std::string_view SPINNING_GAME_MODE_TITLE = "Spinning";
-constexpr std::string_view RUNBOMB_GAME_MODE_TITLE = "Running Bomb";
+enum GameMode : unsigned
+{
+	Default,
+	Spinning,
+	RunningBomb,
+	Count
+};
 
-constexpr std::string_view DEFAULT_GAME_MODE_DESC = "Default Minesweeper:\nUse the hints to discover all safe tiles!";
-constexpr std::string_view SPINNING_GAME_MODE_DESC = "Spinning:\nDefault Minesweeper, but the grid is slowly rotating on itthis!";
-constexpr std::string_view RUNBOMB_GAME_MODE_DESC = "Running Bomb: \nDefault Minesweeper, but a random mine is a Running Bomb!\nThe Running Bomb move at each revealing click.\nIt moves only to an undiscovered tile, and can't move to a tile that already contains a mine.";
+constexpr std::string_view GAME_MODE_TITLE[GameMode::Count] =
+{
+	"Default", "Spinning", "Running Bomb"
+};
+
+constexpr std::string_view GAME_MODE_DESC[GameMode::Count] =
+{
+	"Default Minesweeper:\nUse the hints to discover all safe tiles!",
+	"Spinning:\nDefault Minesweeper, but the grid is slowly rotating on itself!",
+	"Running Bomb:\nDefault Minesweeper, but a random mine is a Running Bomb!\nThe Running Bomb move at each revealing click.\nIt moves only to an undiscovered tile,\nand can't move to a tile that already contains a mine."
+};
 
 }
 
 PlayMenu::PlayMenu()
-	: gameModeText_{.origin = Text::Middle, .string = "Game Mode:"}
-	, gameModeDescription_{.origin = Text::Top, .string = DEFAULT_GAME_MODE_DESC}
-	, gameModeBtn_{.rect = {{}, BUTTON_SIZE}, .text = DEFAULT_GAME_MODE_TITLE}
+	: gameMode_{}
+	, gameModeText_{.origin = Text::Middle, .string = "Game Mode:"}
+	, gameModeDescription_{.origin = Text::Top, .string = GAME_MODE_DESC[gameMode_]}
+	, gameModeBtn_{.rect = {{}, BUTTON_SIZE}, .text = GAME_MODE_TITLE[gameMode_]}
 	, beginnerBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Beginner"}
 	, intermediateBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Intermediate"}
 	, expertBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Expert"}
@@ -50,31 +65,24 @@ EventConsumed PlayMenu::onMouseButtonReleased(sf::Vector2i position)
 {
 	if (gameModeBtn_.rect.contains(position))
 	{
-		// TODO
+		gameMode_ = (gameMode_ + 1) % GameMode::Count;
+		gameModeDescription_.string = GAME_MODE_DESC[gameMode_];
+		gameModeBtn_.text = GAME_MODE_TITLE[gameMode_];
 	}
 	else if (beginnerBtn_.rect.contains(position))
 	{
 		App::instance().game.setEasy();
-		auto& layerStack = App::instance().layerStack;
-		layerStack.scheduleAsyncCommand<LayerStack::Swap>(this, std::make_unique<BoardRenderer>());
-		layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<MinesweeperInput>());
-		layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<UserInterface>());
+		play();
 	}
 	else if (intermediateBtn_.rect.contains(position))
 	{
 		App::instance().game.setMedium();
-		auto& layerStack = App::instance().layerStack;
-		layerStack.scheduleAsyncCommand<LayerStack::Swap>(this, std::make_unique<BoardRenderer>());
-		layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<MinesweeperInput>());
-		layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<UserInterface>());
+		play();
 	}
 	else if (expertBtn_.rect.contains(position))
 	{
 		App::instance().game.setHard();
-		auto& layerStack = App::instance().layerStack;
-		layerStack.scheduleAsyncCommand<LayerStack::Swap>(this, std::make_unique<BoardRenderer>());
-		layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<MinesweeperInput>());
-		layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<UserInterface>());
+		play();
 	}
 	else if (backBtn_.rect.contains(position))
 	{
@@ -87,6 +95,24 @@ EventConsumed PlayMenu::onMouseButtonReleased(sf::Vector2i position)
 	else
 		return EventConsumed::No;
 	return EventConsumed::Yes;
+}
+
+void PlayMenu::play()
+{
+	auto& layerStack = App::instance().layerStack;
+	layerStack.scheduleAsyncCommand<LayerStack::Swap>(this, std::make_unique<BoardRenderer>());
+	layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<MinesweeperInput>());
+	layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<UserInterface>());
+
+	switch (gameMode_)
+	{
+	case GameMode::Spinning:
+		layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<SpinningMode>());
+		break;
+	case GameMode::RunningBomb:
+		layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<RunningBombMode>());
+		break;
+	}
 }
 
 void PlayMenu::render(UITarget& target) const
