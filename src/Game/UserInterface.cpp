@@ -1,7 +1,7 @@
-#include "GameUILayer.h"
-#include "App.h"
+#include "UserInterface.h"
+#include "Core/App.h"
 #include "Utils/Overloaded.h"
-#include "Resources.h"
+#include "Game/Resources.h"
 #include <format>
 
 namespace
@@ -14,7 +14,7 @@ constexpr float BUTTON_PADDING = 5.f;
 
 }
 
-GameUILayer::GameUILayer()
+UserInterface::UserInterface()
 	: gameText_(FONT_REF)
 	, restartText_(FONT_REF)
 	, mainMenuText_(FONT_REF)
@@ -44,7 +44,7 @@ GameUILayer::GameUILayer()
 	centerBoardOnView();
 }
 
-sf::Vector2f GameUILayer::setupText(sf::Text& text) const
+sf::Vector2f UserInterface::setupText(sf::Text& text) const
 {
 	text.setCharacterSize(FONT_SIZE);
 	text.setFillColor(sf::Color::White);
@@ -55,7 +55,7 @@ sf::Vector2f GameUILayer::setupText(sf::Text& text) const
 	return bounds.size;
 }
 
-void GameUILayer::setupBtn(sf::RectangleShape& rect, sf::Vector2f size) const
+void UserInterface::setupBtn(sf::RectangleShape& rect, sf::Vector2f size) const
 {
 	rect.setSize(size);
 	rect.setFillColor({0x79, 0xB6, 0x1E, 0xFF});
@@ -63,7 +63,7 @@ void GameUILayer::setupBtn(sf::RectangleShape& rect, sf::Vector2f size) const
 	rect.setOutlineColor(sf::Color::White);
 }
 
-EventConsumed GameUILayer::handleEvent(const sf::Event& event)
+EventConsumed UserInterface::handleEvent(const sf::Event& event)
 {
 	Overloaded visitor
 	{
@@ -100,7 +100,7 @@ EventConsumed GameUILayer::handleEvent(const sf::Event& event)
 	return event.visit(visitor);
 }
 
-void GameUILayer::resizeUI(sf::Vector2f newSize)
+void UserInterface::resizeUI(sf::Vector2f newSize)
 {
 	uiView_.setSize(newSize);
 	uiView_.setCenter(newSize / 2.f);
@@ -135,7 +135,7 @@ void GameUILayer::resizeUI(sf::Vector2f newSize)
 	resetCameraText_.setPosition(resetCameraPos + resetCameraSize / 2.f);
 }
 
-void GameUILayer::centerBoardOnView()
+void UserInterface::centerBoardOnView()
 {
 	auto& board = App::instance().game.getBoard();
 	sf::Vector2f size = {float(board.getSize().x), float(board.getSize().y)};
@@ -151,7 +151,7 @@ void GameUILayer::centerBoardOnView()
 	App::instance().window.setView(view);
 }
 
-void GameUILayer::update(float dt)
+void UserInterface::update(float dt)
 {
 	auto& board = App::instance().game.getBoard();
 	std::make_signed_t<std::size_t> minesLeft = board.getMineCount() - board.getFlagCount();
@@ -163,7 +163,7 @@ void GameUILayer::update(float dt)
 	gameText_.setString(str);
 }
 
-void GameUILayer::render(sf::RenderTarget& target) const
+void UserInterface::render(sf::RenderTarget& target) const
 {
 	sf::View gameView = target.getView();
 	target.setView(uiView_);

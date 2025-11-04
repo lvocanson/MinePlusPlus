@@ -3,11 +3,11 @@
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 
-class GameUILayer : public Layer
+class UserInterface : public Layer
 {
 public:
 
-	GameUILayer();
+	UserInterface();
 
 private:
 

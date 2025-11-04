@@ -1,6 +1,6 @@
 #include "BoardRenderer.h"
-#include "App.h"
-#include "Resources.h"
+#include "Core/App.h"
+#include "Game/Resources.h"
 #include "Utils/SFMLExtensions.h"
 
 

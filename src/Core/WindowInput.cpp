@@ -1,5 +1,5 @@
 #include "WindowInput.h"
-#include "App.h"
+#include "Core/App.h"
 #include "Utils/Overloaded.h"
 
 EventConsumed WindowInput::handleEvent(const sf::Event& event)

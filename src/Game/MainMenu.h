@@ -1,7 +1,7 @@
 #pragma once
-#include "Layer.h"
+#include "Layer/Layer.h"
 
-class MenuLayer : public Layer
+class MainMenu : public Layer
 {
 	EventConsumed handleEvent(const sf::Event& event) override;
 	void render(sf::RenderTarget& target) const override;

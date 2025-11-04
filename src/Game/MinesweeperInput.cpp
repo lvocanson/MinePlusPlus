@@ -1,6 +1,6 @@
 #include "MinesweeperInput.h"
 #include "Utils/Overloaded.h"
-#include "App.h"
+#include "Core/App.h"
 
 EventConsumed MinesweeperInput::handleEvent(const sf::Event& event)
 {
