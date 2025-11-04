@@ -1,23 +1,29 @@
 #pragma once
-#include "BaseUILayer.h"
-#include "Resources.h"
+#include "Layer/Layer.h"
+#include <SFML/Graphics/Text.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
 
-class GameUILayer : public BaseUILayer
+class GameUILayer : public Layer
 {
-	static constexpr auto& FONT_REF = Resources::Fonts::roboto;
-	static constexpr unsigned FONT_SIZE = 20;
-
 public:
 
 	GameUILayer();
 
 private:
 
-	EventConsumed onPress(sf::Mouse::Button button, sf::Vector2f position) override;
-	EventConsumed onRelease(sf::Mouse::Button button, sf::Vector2f position) override;
+	sf::Vector2f setupText(sf::Text& text) const;
+	void setupBtn(sf::RectangleShape& rect, sf::Vector2f size) const;
 
-	void restart();
+	EventConsumed handleEvent(const sf::Event& event) override;
+	void resizeUI(sf::Vector2f newSize);
 	void centerBoardOnView();
 
+	void update(float dt) override;
 	void render(sf::RenderTarget& target) const override;
+
+private:
+
+	sf::View uiView_;
+	sf::Text gameText_, restartText_, mainMenuText_, resetCameraText_;
+	sf::RectangleShape restartBtn_, mainMenuBtn_, resetCameraBtn_;
 };
