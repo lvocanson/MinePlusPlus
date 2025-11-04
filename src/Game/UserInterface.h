@@ -1,9 +1,9 @@
 #pragma once
-#include "Layer/Layer.h"
-#include <SFML/Graphics/Text.hpp>
-#include <SFML/Graphics/RectangleShape.hpp>
+#include "UI/UserInterfaceLayer.h"
+#include "UI/Button.h"
+#include "UI/Text.h"
 
-class UserInterface : public Layer
+class UserInterface : public UserInterfaceLayer
 {
 public:
 
@@ -11,19 +11,15 @@ public:
 
 private:
 
-	sf::Vector2f setupText(sf::Text& text) const;
-	void setupBtn(sf::RectangleShape& rect, sf::Vector2f size) const;
-
 	EventConsumed handleEvent(const sf::Event& event) override;
-	void resizeUI(sf::Vector2f newSize);
 	void centerBoardOnView();
-
 	void update(float dt) override;
-	void render(sf::RenderTarget& target) const override;
+
+	void onScreenResized(sf::Vector2i newSize) override;
+	void render(UITarget& target) const override;
 
 private:
 
-	sf::View uiView_;
-	sf::Text gameText_, restartText_, mainMenuText_, resetCameraText_;
-	sf::RectangleShape restartBtn_, mainMenuBtn_, resetCameraBtn_;
+	Text gameText_;
+	Button restartBtn_, mainMenuBtn_, resetCameraBtn_;
 };
