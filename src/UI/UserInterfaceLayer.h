@@ -29,8 +29,11 @@ protected:
 		void draw(const struct Text& text);
 	};
 
+	void onPushed() override;
 	EventConsumed handleEvent(const sf::Event& event) override;
+
 	virtual void onScreenResized(sf::Vector2i newSize) {}
+	virtual EventConsumed onMouseButtonReleased(sf::Vector2i position) { return EventConsumed::No; }
 	virtual void render(UITarget& target) const {}
 
 private:

@@ -1,6 +1,6 @@
 #pragma once
 #include <SFML/System/Vector2.hpp>
-#include <string>
+#include <string_view>
 
 struct Text
 {
@@ -13,5 +13,5 @@ struct Text
 
 	sf::Vector2i position;
 	Origin origin = TopLeft;
-	std::string string;
+	std::string_view string;
 };

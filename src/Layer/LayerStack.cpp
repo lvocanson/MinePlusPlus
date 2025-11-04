@@ -16,7 +16,8 @@ void LayerStack::processAsyncCommands()
 			},
 			[this](Push& cmd)
 			{
-				layerStack_.emplace_back(std::move(cmd.layer));
+				auto& layer = layerStack_.emplace_back(std::move(cmd.layer));
+				layer->onPushed();
 			},
 			[this](Swap& cmd)
 			{
@@ -24,6 +25,7 @@ void LayerStack::processAsyncCommands()
 					if (layer.get() == cmd.layer)
 					{
 						layer = std::move(cmd.substitute);
+						layer->onPushed();
 						return;
 					}
 			},

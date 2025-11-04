@@ -2,7 +2,7 @@
 #include "Core/App.h"
 #include "Core/WindowInput.h"
 #include "Game/Resources.h"
-#include "Game/MainMenu.h"
+#include "Menus/MainMenu.h"
 #include "Utils/Overloaded.h"
 #include <format>
 
@@ -19,36 +19,13 @@ UserInterface::UserInterface()
 	, mainMenuBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Main Menu"}
 	, resetCameraBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Reset Camera"}
 {
-	App::instance().clearColor = {0x79, 0x31, 0x32, 0x00};
-	App::instance().game.setMedium();
-	onScreenResized(sf::Vector2i(App::instance().window.getSize()));
-	centerBoardOnView();
 }
 
-EventConsumed UserInterface::handleEvent(const sf::Event& event)
+void UserInterface::onPushed()
 {
-	if (auto* mbPressed = event.getIf<sf::Event::MouseButtonPressed>())
-	{
-		if (restartBtn_.rect.contains(mbPressed->position))
-		{
-			App::instance().game.restart();
-		}
-		else if (mainMenuBtn_.rect.contains(mbPressed->position))
-		{
-			App::instance().layerStack.scheduleAsyncCommand<LayerStack::Clear>();
-			App::instance().layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<WindowInput>());
-			App::instance().layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<MainMenu>());
-		}
-		else if (resetCameraBtn_.rect.contains(mbPressed->position))
-		{
-			centerBoardOnView();
-		}
-		else
-			return EventConsumed::No;
-		return EventConsumed::Yes;
-	}
-
-	return UserInterfaceLayer::handleEvent(event);
+	UserInterfaceLayer::onPushed();
+	App::instance().clearColor = {0x79, 0x31, 0x32, 0x00};
+	centerBoardOnView();
 }
 
 void UserInterface::centerBoardOnView()
@@ -74,8 +51,9 @@ void UserInterface::update(float dt)
 	float bestTime = std::numeric_limits<float>::signaling_NaN(); // TODO
 	auto timeInSeconds = App::instance().game.getPlayingTime().asMicroseconds() / 1'000'000;
 
-	gameText_.string = std::format("Mines left: {}\nBest time: {}\nTime: {}s",
+	gameStr_ = std::format("Mines left: {}\nBest time: {}\nTime: {}s",
 		minesLeft, bestTime, timeInSeconds);
+	gameText_.string = gameStr_;
 }
 
 void UserInterface::onScreenResized(sf::Vector2i newSize)
@@ -103,6 +81,27 @@ void UserInterface::onScreenResized(sf::Vector2i newSize)
 		newSize.x - SCREEN_PADDING - resetCameraBtn_.rect.size.x,
 		newSize.y - SCREEN_PADDING - resetCameraBtn_.rect.size.y
 	};
+}
+
+EventConsumed UserInterface::onMouseButtonReleased(sf::Vector2i position)
+{
+	if (restartBtn_.rect.contains(position))
+	{
+		App::instance().game.restart();
+	}
+	else if (mainMenuBtn_.rect.contains(position))
+	{
+		App::instance().layerStack.scheduleAsyncCommand<LayerStack::Clear>();
+		App::instance().layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<WindowInput>());
+		App::instance().layerStack.scheduleAsyncCommand<LayerStack::Push>(std::make_unique<MainMenu>());
+	}
+	else if (resetCameraBtn_.rect.contains(position))
+	{
+		centerBoardOnView();
+	}
+	else
+		return EventConsumed::No;
+	return EventConsumed::Yes;
 }
 
 void UserInterface::render(UITarget& target) const

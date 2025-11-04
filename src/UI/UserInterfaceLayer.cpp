@@ -1,4 +1,5 @@
 #include "UserInterfaceLayer.h"
+#include "Core/App.h"
 #include "Game/Resources.h"
 #include "Button.h"
 #include "Text.h"
@@ -11,6 +12,15 @@ constexpr unsigned FONT_SIZE = 20;
 
 }
 
+void UserInterfaceLayer::onPushed()
+{
+	sf::Vector2i startSize(App::instance().window.getSize());
+	sf::Vector2f size(startSize);
+	uiView_.setSize(size);
+	uiView_.setCenter(size / 2.f);
+	onScreenResized(startSize);
+}
+
 EventConsumed UserInterfaceLayer::handleEvent(const sf::Event& event)
 {
 	if (auto* resized = event.getIf<sf::Event::Resized>())
@@ -19,6 +29,10 @@ EventConsumed UserInterfaceLayer::handleEvent(const sf::Event& event)
 		uiView_.setSize(size);
 		uiView_.setCenter(size / 2.f);
 		onScreenResized(sf::Vector2i(resized->size));
+	}
+	else if (auto* mbRel = event.getIf<sf::Event::MouseButtonReleased>())
+	{
+		return onMouseButtonReleased(mbRel->position);
 	}
 	return EventConsumed::No;
 }
@@ -55,8 +69,7 @@ void UserInterfaceLayer::UITarget::draw(const Button& button)
 	rect_.setSize(btnRect.size);
 
 	// sf::String can't be constructed from a view
-	sf::String str = sf::String::fromUtf8(button.text.begin(), button.text.end());
-	text_.setString(str);
+	text_.setString(sf::String::fromUtf8(button.text.begin(), button.text.end()));
 	sf::FloatRect bounds = text_.getLocalBounds();
 	text_.setOrigin(bounds.getCenter());
 	text_.setPosition(btnRect.getCenter());
@@ -67,7 +80,7 @@ void UserInterfaceLayer::UITarget::draw(const Button& button)
 
 void UserInterfaceLayer::UITarget::draw(const Text& text)
 {
-	text_.setString(text.string);
+	text_.setString(sf::String::fromUtf8(text.string.begin(), text.string.end()));
 	sf::FloatRect bounds = text_.getLocalBounds();
 	switch (text.origin)
 	{
