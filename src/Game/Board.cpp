@@ -169,12 +169,40 @@ void Board::makeSafe(std::size_t index)
 			mineCell(i);
 	}
 
-	// remove this mine
-	cell.mined = false;
-	for (auto& coordinates : getNeigboursOf(toCoordinates(index)))
+	clearCell(index);
+}
+
+std::size_t Board::moveMine(std::size_t index)
+{
+	assert(isIndexValid(index));
+
+	auto& cell = cells_[index];
+	if (!cell.mined)
+		return index;
+
+	std::size_t unoccupiedNbCount = 0;
+	std::array<std::size_t, 8> unoccupiedNbIndexes;
+	auto cellNeighbours = getNeighboursOf(toCoordinates(index));
+	for (auto& coordinates : cellNeighbours)
 	{
-		--cells_[toIndex(coordinates)].adjacentMines;
+		// can't move to if its mined or opened
+		std::size_t idx = toIndex(coordinates);
+		if (cells_[idx].mined || cells_[idx].opened)
+			continue;
+
+		unoccupiedNbIndexes[unoccupiedNbCount] = idx;
+		++unoccupiedNbCount;
 	}
+
+	if (unoccupiedNbCount == 0)
+		return index;
+
+	clearCell(index);
+	std::uniform_int_distribution<std::size_t> dist(0, unoccupiedNbCount - 1);
+	std::size_t idx = unoccupiedNbIndexes[dist(gen)];
+	mineCell(idx);
+
+	return idx;
 }
 
 void Board::clear()
@@ -192,7 +220,7 @@ bool Board::open(std::size_t index)
 	auto& first = cells_[index];
 	if (first.flagged)
 		return false;
-	
+
 	bool mineOpened = false;
 
 	if (first.opened)
@@ -201,7 +229,7 @@ bool Board::open(std::size_t index)
 		// number of flagged neighbours match the number of adjacent mines.
 		std::size_t flaggedNeighbourCount = 0;
 
-		auto neighbours = getNeigboursOf(toCoordinates(index));
+		auto neighbours = getNeighboursOf(toCoordinates(index));
 		for (auto& coordinates : neighbours)
 		{
 			auto idx = toIndex(coordinates);
@@ -241,7 +269,7 @@ bool Board::open(std::size_t index)
 		if (cell.adjacentMines)
 			continue;
 
-		for (auto& coordinates : getNeigboursOf(toCoordinates(index)))
+		for (auto& coordinates : getNeighboursOf(toCoordinates(index)))
 		{
 			auto idx = toIndex(coordinates);
 			auto& c = cells_[idx];
@@ -277,9 +305,20 @@ void Board::mineCell(std::size_t index)
 	assert(isIndexValid(index));
 	assert(!cells_[index].mined);
 	cells_[index].mined = true;
-	for (auto& coordinates : getNeigboursOf(toCoordinates(index)))
+	for (auto& coordinates : getNeighboursOf(toCoordinates(index)))
 	{
 		++cells_[toIndex(coordinates)].adjacentMines;
+	}
+}
+
+void Board::clearCell(std::size_t index)
+{
+	assert(isIndexValid(index));
+	assert(cells_[index].mined);
+	cells_[index].mined = false;
+	for (auto& coordinates : getNeighboursOf(toCoordinates(index)))
+	{
+		--cells_[toIndex(coordinates)].adjacentMines;
 	}
 }
 

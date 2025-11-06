@@ -70,6 +70,7 @@ public:
 
 	void placeMines();
 	void makeSafe(std::size_t index); // only the index of the last call is guaranted to be safe
+	std::size_t moveMine(std::size_t index); // move the mine to a neighbour and returns its index
 	void clear();
 
 	// returns true if mine opened
@@ -83,11 +84,12 @@ public:
 
 	const Cell& getCellAt(std::size_t index) const { return cells_[index]; }
 	const std::vector<Cell>& getCells() const { return cells_; }
-	NeighbourRange getNeigboursOf(const Vec2s& coordinates) const { return {*this, coordinates}; }
+	NeighbourRange getNeighboursOf(const Vec2s& coordinates) const { return {*this, coordinates}; }
 
 private:
 
 	void mineCell(std::size_t index);
+	void clearCell(std::size_t index);
 	bool openCell(Cell& cell);
 
 private:
