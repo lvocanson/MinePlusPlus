@@ -10,15 +10,18 @@ constexpr Vec2s Vec2s::operator+(const Vec2s& rhs) const
 
 namespace
 {
+// Wrapping offset: added to unsigned coordinates, out of range results are
+// rejected by areCoordinatesValid.
+constexpr std::size_t m1 = -1;
 constexpr NeighbourRange::nt dcoordinates
 {{
-	{-1, -1},
-	{ 0, -1},
-	{ 1, -1},
-	{-1,  0},
+	{m1, m1},
+	{ 0, m1},
+	{ 1, m1},
+	{m1,  0},
 	{ 0,  0},
 	{ 1,  0},
-	{-1,  1},
+	{m1,  1},
 	{ 0,  1},
 	{ 1,  1}
 }};

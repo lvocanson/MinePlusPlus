@@ -20,7 +20,7 @@ struct Vec2s
 	constexpr Vec2s operator+(const Vec2s&) const;
 	constexpr bool operator==(const Vec2s&) const = default;
 };
-constexpr Vec2s INVALID_VEC2S = {-1, -1};
+constexpr Vec2s INVALID_VEC2S = {std::size_t(-1), std::size_t(-1)};
 
 
 struct NeighbourRange
