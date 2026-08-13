@@ -32,7 +32,10 @@ EventConsumed UserInterfaceLayer::handleEvent(const sf::Event& event)
 	}
 	else if (auto* mbRel = event.getIf<sf::Event::MouseButtonReleased>())
 	{
-		return onMouseButtonReleased(mbRel->position);
+		EventConsumed consumed = onMouseButtonReleased(mbRel->position);
+		if (consumed == EventConsumed::Yes)
+			App::instance().audio.play(Resources::Sounds::click1);
+		return consumed;
 	}
 	return EventConsumed::No;
 }

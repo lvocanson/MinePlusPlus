@@ -1,6 +1,7 @@
 #include "MinesweeperInput.h"
 #include "Utils/Overloaded.h"
 #include "Core/App.h"
+#include "Game/Resources.h"
 
 EventConsumed MinesweeperInput::handleEvent(const sf::Event& event)
 {
@@ -31,6 +32,9 @@ EventConsumed MinesweeperInput::handleEvent(const sf::Event& event)
 			case sf::Mouse::Button::Left:
 			case sf::Mouse::Button::Right:
 			{
+				if (App::instance().game.isGameOver())
+					return EventConsumed::No;
+
 				auto& board = App::instance().game.getBoard();
 				Vec2s coo{std::size_t(position.x), std::size_t(position.y)};
 				if (board.areCoordinatesValid(coo))
@@ -60,6 +64,9 @@ EventConsumed MinesweeperInput::handleEvent(const sf::Event& event)
 			case sf::Mouse::Button::Left:
 			case sf::Mouse::Button::Right:
 			{
+				if (App::instance().game.isGameOver())
+					return EventConsumed::No;
+
 				auto& game = App::instance().game;
 				Vec2s pressedCell = game.getPressedCell();
 				game.setPressedCell(INVALID_VEC2S);
@@ -74,10 +81,17 @@ EventConsumed MinesweeperInput::handleEvent(const sf::Event& event)
 				if (event.button == sf::Mouse::Button::Right)
 				{
 					game.flag(coo);
+					App::instance().audio.play(Resources::Sounds::click2);
 					return EventConsumed::Yes;
 				}
 
 				game.open(coo);
+				App::instance().audio.play(game.isGameOver()
+					? game.isLost()
+						? Resources::Sounds::explosion
+						: Resources::Sounds::victory
+					: Resources::Sounds::click1);
+
 				return EventConsumed::Yes;
 			}
 			break;

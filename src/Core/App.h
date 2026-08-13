@@ -1,4 +1,5 @@
 #pragma once
+#include "Core/Audio.h"
 #include "Game/Minesweeper.h"
 #include "Layer/LayerStack.h"
 #include <SFML/Graphics/RenderWindow.hpp>
@@ -23,5 +24,6 @@ public:
 	sf::RenderWindow window;
 	sf::Color clearColor;
 	Minesweeper game;
+	Audio audio;
 	LayerStack layerStack;
 };

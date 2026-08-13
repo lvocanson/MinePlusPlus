@@ -15,6 +15,7 @@ public:
 	const Board& getBoard() const { return board_; }
 	sf::Time getPlayingTime() const { return clock_.getElapsedTime(); }
 	bool isGameOver() const { return state_ == Lost || state_ == Won; }
+	bool isLost() const { return state_ == Lost; }
 
 	void setEasy();
 	void setMedium();
