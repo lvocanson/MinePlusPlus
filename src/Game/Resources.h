@@ -66,8 +66,8 @@ constexpr auto VICTORY_FILE = "victory.ogg";
 
 inline const sf::SoundBuffer click1{RESOURCES_DIR / CLICK_1_FILE};
 inline const sf::SoundBuffer click2{RESOURCES_DIR / CLICK_2_FILE};
-inline const sf::SoundBuffer explosion{RESOURCES_DIR / EXPLOSION_FILE};
-inline const sf::SoundBuffer victory{RESOURCES_DIR / VICTORY_FILE};
+inline const std::filesystem::path explosion{RESOURCES_DIR / EXPLOSION_FILE};
+inline const std::filesystem::path victory{RESOURCES_DIR / VICTORY_FILE};
 
 } // namespace Sounds
 

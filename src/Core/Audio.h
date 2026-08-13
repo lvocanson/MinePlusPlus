@@ -1,7 +1,7 @@
 #pragma once
+#include <SFML/Audio/Music.hpp>
 #include <SFML/Audio/Sound.hpp>
-#include <array>
-#include <cstddef>
+#include <filesystem>
 #include <optional>
 
 /*
@@ -11,11 +11,11 @@ class Audio
 {
 public:
 
-	static constexpr std::size_t VOICE_COUNT = 5;
 	static constexpr float MAX_VOLUME = 100.f; // SFML range: 0 (mute) to 100
 
 	Audio();
 
+	void play(const std::filesystem::path& file);
 	void play(const sf::SoundBuffer& buffer);
 
 	float getVolume() const { return volume_; }
@@ -23,7 +23,7 @@ public:
 
 private:
 
-	std::array<std::optional<sf::Sound>, VOICE_COUNT> voices_;
-	std::size_t nextVoice_;
+	sf::Music music_;
+	std::optional<sf::Sound> sound_;
 	float volume_;
 };

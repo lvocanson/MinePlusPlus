@@ -80,17 +80,28 @@ EventConsumed MinesweeperInput::handleEvent(const sf::Event& event)
 
 				if (event.button == sf::Mouse::Button::Right)
 				{
+					auto flags = board.getFlagCount();
 					game.flag(coo);
-					App::instance().audio.play(Resources::Sounds::click2);
+					if (flags != board.getFlagCount())
+						App::instance().audio.play(Resources::Sounds::click2);
 					return EventConsumed::Yes;
 				}
 
+				auto opened = board.getOpenCount();
 				game.open(coo);
-				App::instance().audio.play(game.isGameOver()
-					? game.isLost()
-						? Resources::Sounds::explosion
-						: Resources::Sounds::victory
-					: Resources::Sounds::click1);
+				if (opened != board.getOpenCount())
+				{
+					if (game.isGameOver())
+					{
+						App::instance().audio.play(game.isLost()
+							? Resources::Sounds::explosion
+							: Resources::Sounds::victory);
+					}
+					else
+					{
+						App::instance().audio.play(Resources::Sounds::click1);
+					}
+				}
 
 				return EventConsumed::Yes;
 			}

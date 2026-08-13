@@ -2,37 +2,39 @@
 #include <SFML/Audio/SoundBuffer.hpp>
 
 Audio::Audio()
-	: voices_{}
-	, nextVoice_{}
-	, volume_(MAX_VOLUME / 2)
+	: volume_(MAX_VOLUME / 2)
 {
+	music_.setVolume(volume_);
+}
+
+void Audio::play(const std::filesystem::path& file)
+{
+	if (music_.openFromFile(file))
+	{
+		music_.play();
+	}
 }
 
 void Audio::play(const sf::SoundBuffer& buffer)
 {
-	std::optional<sf::Sound>& voice = voices_[nextVoice_];
-	nextVoice_ = (nextVoice_ + 1) % VOICE_COUNT;
-
-	if (voice)
+	if (sound_)
 	{
-		voice->stop();
-		voice->setBuffer(buffer);
+		sound_->stop();
+		sound_->setBuffer(buffer);
 	}
 	else
 	{
-		voice.emplace(buffer);
-		voice->setVolume(volume_);
+		sound_.emplace(buffer).setVolume(volume_);
 	}
 
-	voice->play();
+	sound_->play();
 }
 
 void Audio::setVolume(float volume)
 {
 	volume_ = volume;
-	for (std::optional<sf::Sound>& voice : voices_)
-	{
-		if (voice)
-			voice->setVolume(volume_);
-	}
+	music_.setVolume(volume);
+
+	if (sound_)
+		sound_->setVolume(volume);
 }
