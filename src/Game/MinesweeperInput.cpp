@@ -2,6 +2,7 @@
 #include "Utils/Overloaded.h"
 #include "Core/App.h"
 #include "Game/Resources.h"
+#include <cmath>
 
 EventConsumed MinesweeperInput::handleEvent(const sf::Event& event)
 {
