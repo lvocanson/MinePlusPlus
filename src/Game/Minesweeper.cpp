@@ -1,7 +1,4 @@
 #include "Minesweeper.h"
-#include "Minesweeper.h"
-#include "Minesweeper.h"
-#include "Minesweeper.h"
 
 Minesweeper::Minesweeper()
 	: state_{}
@@ -11,20 +8,22 @@ Minesweeper::Minesweeper()
 
 void Minesweeper::setEasy()
 {
-	board_ = Board::EasyBoard();
-	state_ = Empty;
+	resize({9, 9});
+	setMineCount(10);
 }
 
 void Minesweeper::setMedium()
 {
-	board_ = Board::MediumBoard();
 	state_ = Empty;
+	resize({16, 16});
+	setMineCount(40);
 }
 
 void Minesweeper::setHard()
 {
-	board_ = Board::HardBoard();
 	state_ = Empty;
+	resize({30, 16});
+	setMineCount(99);
 }
 
 void Minesweeper::resize(const Vec2s& size)
@@ -37,6 +36,14 @@ void Minesweeper::resize(const Vec2s& size)
 
 	board_.resize(size);
 	state_ = Empty;
+}
+
+void Minesweeper::setMineCount(std::size_t mineCount)
+{
+	if (mineCount > board_.getMaxNumberOfMines())
+		return;
+
+	board_.setMineCount(mineCount);
 }
 
 void Minesweeper::restart()

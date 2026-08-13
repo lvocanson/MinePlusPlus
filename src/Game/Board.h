@@ -2,22 +2,30 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 struct Cell
 {
 	std::uint8_t adjacentMines : 4; // [0, 15]
-	bool mined : 1;
-	bool opened : 1;
-	bool flagged : 1;
-	bool frontline : 1;
+	bool mined                 : 1;
+	bool opened                : 1;
+	bool flagged               : 1;
+	bool frontline             : 1;
+};
+
+// Signed offset between two Vec2s.
+struct Vec2sDelta
+{
+	std::ptrdiff_t x, y;
 };
 
 struct Vec2s
 {
 	std::size_t x, y;
 
-	constexpr Vec2s operator+(const Vec2s&) const;
+	// Returns nullopt if the result is not representable as a Vec2s.
+	constexpr std::optional<Vec2s> operator+(const Vec2sDelta&) const;
 	constexpr bool operator==(const Vec2s&) const = default;
 };
 constexpr Vec2s INVALID_VEC2S = {std::size_t(-1), std::size_t(-1)};
@@ -29,8 +37,11 @@ struct NeighbourRange
 
 	using nt = std::array<Vec2s, 9>;
 	nt neighbours;
+	std::size_t count;
 
+	nt::iterator begin();
 	nt::const_iterator begin() const;
+	nt::iterator end();
 	nt::const_iterator end() const;
 };
 
@@ -43,17 +54,13 @@ class Board
 {
 public:
 
-	static Board EasyBoard();
-	static Board MediumBoard();
-	static Board HardBoard();
-
-public:
-
 	Board();
 	Board(const Board&) = default;
 	Board(Board&&) noexcept = default;
 	Board& operator=(const Board&) = default;
 	Board& operator=(Board&&) noexcept = default;
+
+public: // setup methods
 
 	static bool isSizeValid(const Vec2s& size);
 	void resize(const Vec2s& size);
@@ -69,9 +76,17 @@ public:
 	std::size_t getMineCount() const { return mineCount_; }
 
 	void placeMines();
-	void makeSafe(std::size_t index); // only the index of the last call is guaranted to be safe
-	std::size_t moveMine(std::size_t index); // move the mine to a neighbour and returns its index
 	void clear();
+
+	// Make sure the 'index' cell is not mined, moving the mine to an other random
+	// cell. Only the last index passed to this function is guarenteed safe.
+	void makeSafe(std::size_t index);
+
+	// Move the mine at 'index' to a neighbour and returns its new index.
+	// The returned index can be the same as 'index' if the method failed.
+	std::size_t moveMine(std::size_t index);
+
+public: // playing methods
 
 	// returns true if mine opened
 	bool open(std::size_t index);
@@ -86,29 +101,23 @@ public:
 	const std::vector<Cell>& getCells() const { return cells_; }
 	NeighbourRange getNeighboursOf(const Vec2s& coordinates) const { return {*this, coordinates}; }
 
-private:
+private: // setup helpers
 
 	void mineCell(std::size_t index);
 	void clearCell(std::size_t index);
+
+private: // open helpers
+
+	struct OpenImpl;
 	bool openCell(Cell& cell);
+	void openOrPush(NeighbourRange& neighbours, OpenImpl& impl);
+	void computeFrontline(OpenImpl& impl);
+	void fullScan(OpenImpl& impl);
+	void cleanFrontline(OpenImpl& impl);
 
 private:
 
 	Vec2s size_;
 	std::size_t mineCount_, flagCount_, openCount_;
 	std::vector<Cell> cells_;
-
-private:
-
-	void setupFrontline();
-	std::size_t biggestFrontline() const;
-
-	bool isFrontlineEmpty() const;
-	void pushFrontline(std::size_t index);
-	std::size_t popFrontline();
-
-private:
-
-	std::size_t begFrontline_, endFrontline_;
-	std::vector<size_t> frontline_;
 };
