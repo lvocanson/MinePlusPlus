@@ -3,34 +3,33 @@
 #include "UI/Button.h"
 #include "UI/Text.h"
 #include "UI/ClickTracker.h"
+#include <SFML/System/String.hpp>
 
-class PlayMenu
+class App;
+class Minesweeper;
+
+class GameUI
 {
 public:
 
-	PlayMenu(class Minesweeper&);
+	GameUI(App& app);
+	~GameUI();
+
 	UIEvent::Result operator()(const UIEvent::Resized& event);
 	UIEvent::Result operator()(const UIEvent::Pressed& event);
 	UIEvent::Result operator()(const UIEvent::Released& event);
 	UIEvent::Result operator()(const UIEvent::Typed& event) { return UIEvent::Ignored; }
 	void render(class UITarget& target) const;
 
-	enum GameMode
-	{
-		Default,
-		Spinning,
-		RunningBomb,
-		Count
-	};
+private:
+
+	void centerBoardOnView(App& app) const;
 
 private:
 
-	enum Difficulty { Easy, Medium, Hard };
-
-	void play(App&, Difficulty) const;
-
-	GameMode gameMode_;
-	Text gameModeText_, gameModeDescription_;
-	Button gameModeBtn_, beginnerBtn_, intermediateBtn_, expertBtn_, backBtn_, customBtn_;
+	Minesweeper& game_;
+	mutable sf::String gameString_;
+	mutable Text gameText_;
+	Button restartBtn_, mainMenuBtn_, resetCameraBtn_;
 	ClickTracker tracker_;
 };

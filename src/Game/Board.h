@@ -28,8 +28,6 @@ struct Vec2s
 	constexpr std::optional<Vec2s> operator+(const Vec2sDelta&) const;
 	constexpr bool operator==(const Vec2s&) const = default;
 };
-constexpr Vec2s INVALID_VEC2S = {std::size_t(-1), std::size_t(-1)};
-
 
 struct NeighbourRange
 {
