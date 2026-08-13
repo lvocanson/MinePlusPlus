@@ -13,5 +13,5 @@ struct Text
 
 	sf::Vector2i position;
 	Origin origin = TopLeft;
-	std::string_view string;
+	std::u32string_view string;
 };

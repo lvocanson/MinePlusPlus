@@ -1,29 +1,60 @@
 #pragma once
-#include "Core/Audio.h"
+#include "AppCommands.h"
+#include "Audio.h"
 #include "Game/Minesweeper.h"
-#include "Layer/LayerStack.h"
+#include "Utils/NotCopyable.h"
+#include "Utils/NotMovable.h"
 #include <SFML/Graphics/RenderWindow.hpp>
-#include <concepts>
-#include <vector>
+#include <array>
+#include <cassert>
+#include <exception>
 
-class App
+class App : NotCopyable, NotMovable
 {
-	static inline App* instance_{};
-
 public:
 
 	App();
 	int run();
-	void exit();
-	~App();
-
-	static App& instance() { return *instance_; }
 
 public:
 
-	sf::RenderWindow window;
-	sf::Color clearColor;
-	Minesweeper game;
-	Audio audio;
-	LayerStack layerStack;
+	Minesweeper& getGame() { return game_; }
+	Audio& getAudio() { return audio_; }
+
+public:
+
+	// Defer execution until end of frame
+	template <ValidCommand T, class... Args>
+	T& submitCommand(Args&&... args)
+	{
+		for (auto& command : commands_)
+			if (command.index() == 0)
+				return command.emplace<T>(
+					std::forward<Args>(args)
+					...
+				);
+
+		assert(false && "Command queue is too small");
+		std::terminate();
+	}
+
+public:
+
+	void resetView();
+	void centerView(sf::FloatRect target);
+
+private:
+
+	void pollEvents();
+	void processCommands();
+
+private:
+
+	sf::RenderWindow window_;
+	sf::Color clearColor_;
+	bool isMouseDraggingCamera_;
+	AppUI ui_;
+	Minesweeper game_;
+	Audio audio_;
+	std::array<AppCommand, 2> commands_;
 };

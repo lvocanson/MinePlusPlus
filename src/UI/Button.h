@@ -5,5 +5,5 @@
 struct Button
 {
 	sf::IntRect rect;
-	std::string_view text;
+	std::u32string_view text;
 };

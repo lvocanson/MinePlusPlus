@@ -2,6 +2,7 @@
 #include "Core/App.h"
 #include "PlayMenu.h"
 #include "SettingsMenu.h"
+#include "UI/UITarget.h"
 
 namespace
 {
@@ -9,48 +10,55 @@ namespace
 constexpr sf::Vector2i BUTTON_SIZE = {150, 28};
 constexpr sf::Vector2i ELEMENTS_GAP = {0, 60};
 constexpr float EXIT_BUTTON_SCALE = 0.8f;
+
 }
 
 MainMenu::MainMenu()
-	: title_{.origin = Text::Middle, .string = "Mine++!"}
-	, playBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Play"}
-	, settingsBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Settings"}
-	, exitBtn_{.rect = {{}, sf::Vector2i(sf::Vector2f(BUTTON_SIZE) * EXIT_BUTTON_SCALE)}, .text = "Quit"}
+	: title_{.origin = Text::Middle, .string = U"Mine++!"}
+	, playBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Play"}
+	, settingsBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Settings"}
+	, exitBtn_{.rect = {{}, sf::Vector2i(sf::Vector2f(BUTTON_SIZE) * EXIT_BUTTON_SCALE)}, .text = U"Quit"} {}
+
+UIEvent::Result MainMenu::operator()(const UIEvent::Resized& event)
 {
+	sf::Vector2i centerView = event.newSize / 2;
+	title_.position = centerView - ELEMENTS_GAP;
+	playBtn_.rect.position = centerView - playBtn_.rect.size / 2;
+	settingsBtn_.rect.position = centerView - settingsBtn_.rect.size / 2 + ELEMENTS_GAP;
+	exitBtn_.rect.position = centerView - exitBtn_.rect.size / 2 + ELEMENTS_GAP * 2;
+	return UIEvent::Consumed;
 }
 
-void MainMenu::onPushed()
+UIEvent::Result MainMenu::operator()(const UIEvent::Pressed& event)
 {
-	UserInterfaceLayer::onPushed();
-	App::instance().clearColor = {0x31, 0x4D, 0x79, 0x00};
+	return tracker_.registerPress(
+		       event.position,
+		       {
+			       playBtn_,
+			       settingsBtn_,
+			       exitBtn_
+		       })
+	       ? UIEvent::Consumed
+	       : UIEvent::Ignored;
 }
 
-void MainMenu::onScreenResized(sf::Vector2i newSize)
+UIEvent::Result MainMenu::operator()(const UIEvent::Released& event)
 {
-	sf::Vector2i center = newSize / 2;
-	title_.position = center - ELEMENTS_GAP;
-	playBtn_.rect.position = center - playBtn_.rect.size / 2;
-	settingsBtn_.rect.position = center - settingsBtn_.rect.size / 2 + ELEMENTS_GAP;
-	exitBtn_.rect.position = center - exitBtn_.rect.size / 2 + ELEMENTS_GAP * 2;
-}
-
-EventConsumed MainMenu::onMouseButtonReleased(sf::Vector2i position)
-{
-	if (playBtn_.rect.contains(position))
+	if (tracker_.isClicked(playBtn_, event.position))
 	{
-		App::instance().layerStack.scheduleAsyncCommand<LayerStack::Swap>(this, std::make_unique<PlayMenu>());
+		event.app.submitCommand<SwapUI>([&game = event.app.getGame()](AppUI& ui) { ui.emplace<PlayMenu>(game); });
 	}
-	else if (settingsBtn_.rect.contains(position))
+	else if (tracker_.isClicked(settingsBtn_, event.position))
 	{
-		App::instance().layerStack.scheduleAsyncCommand<LayerStack::Swap>(this, std::make_unique<SettingsMenu>());
+		event.app.submitCommand<SwapUI>(SwapUI::DEFAULT<SettingsMenu>);
 	}
-	else if (exitBtn_.rect.contains(position))
+	else if (tracker_.isClicked(exitBtn_, event.position))
 	{
-		App::instance().exit();
+		event.app.submitCommand<RequestExit>();
 	}
 	else
-		return EventConsumed::No;
-	return EventConsumed::Yes;
+		return UIEvent::Ignored;
+	return UIEvent::Consumed;
 }
 
 void MainMenu::render(UITarget& target) const

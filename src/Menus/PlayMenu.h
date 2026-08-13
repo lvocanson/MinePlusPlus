@@ -1,24 +1,36 @@
 #pragma once
-#include "UI/UserInterfaceLayer.h"
+#include "Core/AppEvent.h"
 #include "UI/Button.h"
 #include "UI/Text.h"
+#include "UI/ClickTracker.h"
 
-class PlayMenu : public UserInterfaceLayer
+class PlayMenu
 {
 public:
 
-	PlayMenu();
+	PlayMenu(class Minesweeper&);
+	UIEvent::Result operator()(const UIEvent::Resized& event);
+	UIEvent::Result operator()(const UIEvent::Pressed& event);
+	UIEvent::Result operator()(const UIEvent::Released& event);
+	UIEvent::Result operator()(const UIEvent::Typed& event) { return UIEvent::Ignored; }
+	void render(class UITarget& target) const;
+
+	enum GameMode
+	{
+		Default,
+		Spinning,
+		RunningBomb,
+		Count
+	};
 
 private:
 
-	void onScreenResized(sf::Vector2i newSize) override;
-	EventConsumed onMouseButtonReleased(sf::Vector2i position) override;
-	void play();
-	void render(UITarget& target) const override;
+	enum Difficulty { Easy, Medium, Hard };
 
-private:
+	void play(App&, Difficulty) const;
 
-	unsigned gameMode_;
+	GameMode gameMode_;
 	Text gameModeText_, gameModeDescription_;
 	Button gameModeBtn_, beginnerBtn_, intermediateBtn_, expertBtn_, backBtn_, customBtn_;
+	ClickTracker tracker_;
 };
