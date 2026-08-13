@@ -27,7 +27,7 @@ if (MSVC)
 endif()
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
-target_link_libraries(${PROJECT_NAME} PRIVATE SFML::Graphics)
+target_link_libraries(${PROJECT_NAME} PRIVATE SFML::Graphics SFML::Audio)
 
 add_custom_command(
 	TARGET ${PROJECT_NAME} POST_BUILD
