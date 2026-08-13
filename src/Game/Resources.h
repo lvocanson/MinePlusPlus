@@ -59,10 +59,10 @@ inline const sf::Texture openedCellMine{RESOURCES_DIR / OPENED_CELL_MINE_FILE};
 namespace Sounds
 {
 
-constexpr auto CLICK_1_FILE = "click-1.wav";
-constexpr auto CLICK_2_FILE = "click-2.wav";
-constexpr auto EXPLOSION_FILE = "explosion.wav";
-constexpr auto VICTORY_FILE = "victory.wav";
+constexpr auto CLICK_1_FILE = "click-1.ogg";
+constexpr auto CLICK_2_FILE = "click-2.ogg";
+constexpr auto EXPLOSION_FILE = "explosion.ogg";
+constexpr auto VICTORY_FILE = "victory.ogg";
 
 inline const sf::SoundBuffer click1{RESOURCES_DIR / CLICK_1_FILE};
 inline const sf::SoundBuffer click2{RESOURCES_DIR / CLICK_2_FILE};
