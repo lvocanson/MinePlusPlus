@@ -3,7 +3,7 @@
 #include "UI/Button.h"
 #include "UI/Text.h"
 #include "UI/ClickTracker.h"
-#include <SFML/System/String.hpp>
+#include <string>
 
 class App;
 class Minesweeper;
@@ -28,7 +28,7 @@ private:
 private:
 
 	Minesweeper& game_;
-	mutable sf::String gameString_;
+	mutable std::string gameString_;
 	mutable Text gameText_;
 	Button restartBtn_, mainMenuBtn_, resetCameraBtn_;
 	ClickTracker tracker_;

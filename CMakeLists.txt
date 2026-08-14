@@ -1,5 +1,13 @@
 ﻿cmake_minimum_required (VERSION 3.12)
+
+set(ENV{VSLANG} 1033)
+
 project ("MinePlusPlus")
+
+if (MSVC)
+	set(CMAKE_C_COMPILER_LAUNCHER   ${CMAKE_COMMAND} -E env VSLANG=1033)
+	set(CMAKE_CXX_COMPILER_LAUNCHER ${CMAKE_COMMAND} -E env VSLANG=1033)
+endif()
 
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 

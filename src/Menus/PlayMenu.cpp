@@ -11,22 +11,22 @@ namespace
 constexpr sf::Vector2i BUTTON_SIZE = {150, 28};
 constexpr sf::Vector2i ELEMENTS_GAP = {200, 60};
 
-constexpr std::u32string_view GAME_MODE_TITLE[PlayMenu::GameMode::Count] =
+constexpr std::string_view GAME_MODE_TITLE[PlayMenu::GameMode::Count] =
 {
-	U"Default",
-	U"Spinning",
-	U"Running Bomb"
+	"Default",
+	"Spinning",
+	"Running Bomb"
 };
 
-constexpr std::u32string_view GAME_MODE_DESC[PlayMenu::GameMode::Count] =
+constexpr std::string_view GAME_MODE_DESC[PlayMenu::GameMode::Count] =
 {
-	U"Default Minesweeper:\n"
+	"Default Minesweeper:\n"
 	"Use the hints to discover all safe tiles!",
 
-	U"Spinning:\n"
+	"Spinning:\n"
 	"Default Minesweeper, but the grid is slowly rotating on itself!",
 
-	U"Running Bomb:\n"
+	"Running Bomb:\n"
 	"Default Minesweeper, but a random mine is a Running Bomb!\n"
 	"The Running Bomb move at each revealing click.\n"
 	"It moves only to an undiscovered tile,\n"
@@ -37,14 +37,14 @@ constexpr std::u32string_view GAME_MODE_DESC[PlayMenu::GameMode::Count] =
 
 PlayMenu::PlayMenu(Minesweeper& game)
 	: gameMode_{}
-	, gameModeText_{.origin = Text::Middle, .string = U"Game Mode:"}
+	, gameModeText_{.origin = Text::Middle, .string = "Game Mode:"}
 	, gameModeDescription_{.origin = Text::Top, .string = GAME_MODE_DESC[gameMode_]}
 	, gameModeBtn_{.rect = {{}, BUTTON_SIZE}, .text = GAME_MODE_TITLE[gameMode_]}
-	, beginnerBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Beginner"}
-	, intermediateBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Intermediate"}
-	, expertBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Expert"}
-	, backBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Back"}
-	, customBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Custom"} {}
+	, beginnerBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Beginner"}
+	, intermediateBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Intermediate"}
+	, expertBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Expert"}
+	, backBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Back"}
+	, customBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Custom"} {}
 
 UIEvent::Result PlayMenu::operator()(const UIEvent::Resized& event)
 {

@@ -3,6 +3,7 @@
 #include "Game/Minesweeper.h"
 #include "UI/UITarget.h"
 #include <format>
+#include <iterator>
 
 namespace
 {
@@ -14,20 +15,15 @@ constexpr sf::Vector2i ELEMENTS_GAP = {200, 60};
 
 CustomMenu::CustomMenu(Minesweeper& game)
 	: game_(game)
-	, widthText_{.origin = Text::Middle, .string = U"Width"}
-	, heightText_{.origin = Text::Middle, .string = U"Height"}
-	, minesText_{.origin = Text::Middle, .string = U"Mines"}
+	, widthText_{.origin = Text::Middle, .string = "Width"}
+	, heightText_{.origin = Text::Middle, .string = "Height"}
+	, minesText_{.origin = Text::Middle, .string = "Mines"}
 	, diagnosticText_{.origin = Text::Top}
-	, widthField_{.rect = {{}, BUTTON_SIZE}}
-	, heightField_{.rect = {{}, BUTTON_SIZE}}
-	, minesField_{.rect = {{}, BUTTON_SIZE}}
-	, backBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Back"}
-	, startBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Start"}
-{
-	widthField_.setNumber(20);
-	heightField_.setNumber(20);
-	minesField_.setNumber(50);
-}
+	, widthField_{.rect = {{}, BUTTON_SIZE}, .value = 20}
+	, heightField_{.rect = {{}, BUTTON_SIZE}, .value = 20}
+	, minesField_{.rect = {{}, BUTTON_SIZE}, .value = 50}
+	, backBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Back"}
+	, startBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Start"} {}
 
 UIEvent::Result CustomMenu::operator()(const UIEvent::Resized& event)
 {
@@ -75,9 +71,9 @@ UIEvent::Result CustomMenu::operator()(const UIEvent::Released& event)
 	}
 	else if (tracker_.isClicked(startBtn_, event.position))
 	{
-		Vec2s newSize = {widthField_.toNumber(), heightField_.toNumber()};
+		Vec2s newSize = {widthField_.value, heightField_.value};
 		game_.resize(newSize);
-		game_.setMineCount(minesField_.toNumber());
+		game_.setMineCount(minesField_.value);
 		event.app.submitCommand<SwapUI>([&app = event.app](AppUI& ui) { ui.emplace<GameUI>(app); });
 		event.app.submitCommand<ChangeClearColor>(sf::Color{0x79, 0x31, 0x32, 0x00});
 	}
@@ -93,36 +89,34 @@ UIEvent::Result CustomMenu::operator()(const UIEvent::Typed& event)
 
 	cursor_.field->add(event.utf32);
 
-	Vec2s newSize = {widthField_.toNumber(), heightField_.toNumber()};
-	std::size_t mineCount = minesField_.toNumber();
+	Vec2s newSize = {widthField_.value, heightField_.value};
+	std::size_t mineCount = minesField_.value;
 
 	std::size_t cellCount = newSize.x * newSize.y;
 	std::size_t maxCells = std::vector<Cell>().max_size();
 
 	diagnosticStr_.clear();
+	auto out = std::back_inserter(diagnosticStr_);
 	if (!Board::isSizeValid(newSize))
 	{
 		if (!newSize.x || !newSize.y)
 		{
-			diagnosticStr_ += std::format("Invalid size: width or height is 0.\n");
+			std::format_to(out, "Invalid size: width or height is 0.\n");
 		}
 		else if (newSize.x > std::numeric_limits<std::size_t>::max() / newSize.y)
 		{
-			diagnosticStr_ += std::format("Invalid size: the number of cells is too big and cannot be computed.");
+			std::format_to(out, "Invalid size: the number of cells is too big and cannot be computed.\n");
 		}
 		else if (cellCount > maxCells)
 		{
-			diagnosticStr_ += std::format("Invalid size: max number of cells exceeded: {}/{}\n", cellCount, maxCells);
+			std::format_to(out, "Invalid size: max number of cells exceeded: {}/{}\n", cellCount, maxCells);
 		}
 	}
-	if (cellCount - 1 < mineCount)
+	if (cellCount && cellCount - 1 < mineCount)
 	{
-		diagnosticStr_ += std::format(
-			"Max number of mines exceeded: {}/{}\n",
-			mineCount,
-			cellCount - 1);
+		std::format_to(out, "Max number of mines exceeded: {}/{}\n", mineCount, cellCount - 1);
 	}
-	diagnosticText_.string = {diagnosticStr_.getData(), diagnosticStr_.getSize()};
+	diagnosticText_.string = diagnosticStr_;
 
 	return UIEvent::Consumed;
 }
