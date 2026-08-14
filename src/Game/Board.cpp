@@ -219,7 +219,7 @@ std::size_t Board::moveMine(std::size_t index)
 
 struct Board::OpenImpl
 {
-	static constexpr std::size_t FRONTLINE_SIZE = 20;
+	static constexpr std::size_t FRONTLINE_SIZE = 512;
 
 	// Frontline buffer used for BFS expansion.
 	// If it fills up (large open area with few mines), we fall back to a full scan.

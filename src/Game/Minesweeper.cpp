@@ -38,6 +38,7 @@ void Minesweeper::resize(const Vec2s& size)
 	renderer_.resize(board_);
 	runningBombIndexes_.clear();
 	state_ = Empty;
+	renderer_.makeDirty();
 }
 
 void Minesweeper::setMineCount(std::size_t mineCount)
@@ -63,6 +64,7 @@ void Minesweeper::restart()
 	runningBombIndexes_.clear();
 	clock_.reset();
 	state_ = Ready;
+	renderer_.makeDirty();
 }
 
 void Minesweeper::open(const Vec2s& coordinates)
@@ -104,6 +106,7 @@ void Minesweeper::open(const Vec2s& coordinates)
 		for (auto& index : runningBombIndexes_)
 			index = board_.moveMine(index);
 	}
+	renderer_.makeDirty();
 }
 
 void Minesweeper::flag(const Vec2s& coordinates)
@@ -119,6 +122,7 @@ void Minesweeper::flag(const Vec2s& coordinates)
 
 	std::size_t index = board_.toIndex(coordinates);
 	board_.flag(index);
+	renderer_.makeDirty();
 }
 
 void Minesweeper::dispatchWorldEvent(const WorldEvent& event)
@@ -149,7 +153,7 @@ void Minesweeper::update(float dt)
 		.pressedCellIndex   = pressedCellIndex,
 		.runningMineIndexes = runningBombIndexes_
 	};
-	renderer_.update(board_, state); // TODO: update only when board or state changes
+	renderer_.update(board_, state);
 }
 
 void Minesweeper::render(sf::RenderTarget& target) const
@@ -173,6 +177,12 @@ void Minesweeper::resetParameters()
 	setRendering(false);
 	setRotationSpeed(0.f);
 	setRunningBombCount(0);
+}
+
+void Minesweeper::setPressedCell(std::optional<Vec2s> coordinates)
+{
+	pressedCell_ = coordinates;
+	renderer_.makeDirty();
 }
 
 void Minesweeper::setRunningBombCount(std::size_t count)

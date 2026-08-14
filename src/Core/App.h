@@ -29,10 +29,7 @@ public:
 	{
 		for (auto& command : commands_)
 			if (command.index() == 0)
-				return command.emplace<T>(
-					std::forward<Args>(args)
-					...
-				);
+				return command.emplace<T>(std::forward<Args>(args)...);
 
 		assert(false && "Command queue is too small");
 		std::terminate();
@@ -53,8 +50,8 @@ private:
 	sf::RenderWindow window_;
 	sf::Color clearColor_;
 	bool isMouseDraggingCamera_;
-	AppUI ui_;
 	Minesweeper game_;
+	AppUI ui_;
 	Audio audio_;
 	std::array<AppCommand, 2> commands_;
 };

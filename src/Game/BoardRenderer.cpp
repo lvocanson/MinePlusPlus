@@ -46,6 +46,10 @@ void BoardRenderer::setCellTexCoords(std::size_t index, const sf::FloatRect& atl
 
 void BoardRenderer::update(const Board& board, const State& state)
 {
+	if (!dirty_) return;
+	dirty_ = false;
+
+
 	for (std::size_t index = 0; index < board.getCells().size(); ++index)
 	{
 		const sf::FloatRect* atlasRect = nullptr;

@@ -38,7 +38,7 @@ public:
 
 	void resetParameters();
 
-	void setPressedCell(std::optional<Vec2s> coordinates) { pressedCell_ = coordinates; }
+	void setPressedCell(std::optional<Vec2s> coordinates);
 	std::optional<Vec2s> getPressedCell() const { return pressedCell_; }
 	void setRendering(bool active) { rendering_ = active; }
 

@@ -33,6 +33,8 @@ public:
 	void update(const Board& board, const State& state);
 	void render(sf::RenderTarget& target) const;
 
+	void makeDirty() { dirty_ = true; }
+
 private:
 
 	void setCellTexCoords(std::size_t index, const sf::FloatRect& atlasRect);
@@ -41,4 +43,5 @@ private:
 
 	sf::VertexArray varray_;
 	sf::Shader shader_;
+	bool dirty_;
 };
