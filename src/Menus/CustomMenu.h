@@ -5,6 +5,7 @@
 #include "UI/Text.h"
 #include "UI/ClickTracker.h"
 #include "UI/Cursor.h"
+#include <string>
 
 class Minesweeper;
 
@@ -22,7 +23,7 @@ public:
 private:
 
 	Minesweeper& game_;
-	sf::String diagnosticStr_;
+	std::string diagnosticStr_;
 	Text widthText_, heightText_, minesText_, diagnosticText_;
 	NumberField widthField_, heightField_, minesField_;
 	Button backBtn_, startBtn_;

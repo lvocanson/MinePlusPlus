@@ -14,10 +14,10 @@ constexpr float EXIT_BUTTON_SCALE = 0.8f;
 }
 
 MainMenu::MainMenu()
-	: title_{.origin = Text::Middle, .string = U"Mine++!"}
-	, playBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Play"}
-	, settingsBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Settings"}
-	, exitBtn_{.rect = {{}, sf::Vector2i(sf::Vector2f(BUTTON_SIZE) * EXIT_BUTTON_SCALE)}, .text = U"Quit"} {}
+	: title_{.origin = Text::Middle, .string = "Mine++!"}
+	, playBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Play"}
+	, settingsBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Settings"}
+	, exitBtn_{.rect = {{}, sf::Vector2i(sf::Vector2f(BUTTON_SIZE) * EXIT_BUTTON_SCALE)}, .text = "Quit"} {}
 
 UIEvent::Result MainMenu::operator()(const UIEvent::Resized& event)
 {

@@ -4,6 +4,7 @@
 #include "Menus/MainMenu.h"
 #include "UI/UITarget.h"
 #include <format>
+#include <iterator>
 
 namespace
 {
@@ -15,9 +16,9 @@ constexpr sf::Vector2i BUTTON_SIZE = {150, 28};
 
 GameUI::GameUI(App& app)
 	: game_(app.getGame())
-	, restartBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Restart"}
-	, mainMenuBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Main Menu"}
-	, resetCameraBtn_{.rect = {{}, BUTTON_SIZE}, .text = U"Reset Camera"}
+	, restartBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Restart"}
+	, mainMenuBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Main Menu"}
+	, resetCameraBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Reset Camera"}
 {
 	game_.setRendering(true);
 	centerBoardOnView(app);
@@ -97,12 +98,14 @@ void GameUI::render(UITarget& target) const
 	float bestTime = std::numeric_limits<float>::signaling_NaN(); // TODO
 	auto time = game_.getPlayingTime().asMicroseconds() / 1'000'000;
 
-	gameString_ = std::format(
+	gameString_.clear();
+	std::format_to(
+		std::back_inserter(gameString_),
 		"Mines left: {}\nBest time: {}s\nTime: {}s",
 		minesLeft,
 		bestTime,
 		time);
-	gameText_.string = {gameString_.getData(), gameString_.getSize()};
+	gameText_.string = gameString_;
 
 	target.draw(gameText_);
 	target.draw(resetCameraBtn_);

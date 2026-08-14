@@ -123,8 +123,8 @@ void main()
     int texelIndex = cellIndex >> 2;
     ivec2 stateTexel = ivec2(texelIndex & ((1 << stateTexWidthLog2) - 1),
                              texelIndex >> stateTexWidthLog2);
-    vec4 packed = texelFetch(stateTex, stateTexel, 0);
-    int tile = int(packed[cellIndex & 3] * 255.0 + 0.5);
+    vec4 packedTiles = texelFetch(stateTex, stateTexel, 0);
+    int tile = int(packedTiles[cellIndex & 3] * 255.0 + 0.5);
 
     // Atlas cells are laid out row-major, so the Tile is a linear index into it.
     int columns = int(atlasTexSize.x / atlasCellSize.x);
