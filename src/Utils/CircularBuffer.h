@@ -66,7 +66,7 @@ public:
 
 	void empty()
 	{
-		for (; beg_ != end_; incr(beg_))
+		for (; beg_ != end_; beg_ = incr(beg_))
 			std::destroy_at(&buffer_[beg_]);
 	}
 };

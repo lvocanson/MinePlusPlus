@@ -2,9 +2,9 @@
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/VertexArray.hpp>
 #include <SFML/Graphics/Shader.hpp>
+#include <SFML/Graphics/Texture.hpp>
+#include <array>
 #include <cstdint>
-#include <optional>
-#include <vector>
 
 class Board;
 
@@ -32,16 +32,18 @@ public:
 	void resize(const Board& board);
 	void update(const Board& board, const State& state);
 	void render(sf::RenderTarget& target) const;
-
 	void makeDirty() { dirty_ = true; }
 
 private:
 
-	void setCellTexCoords(std::size_t index, const sf::FloatRect& atlasRect);
+	void flushScratch(std::size_t first, std::size_t count);
 
 private:
 
-	sf::VertexArray varray_;
+	sf::VertexArray boardQuad_;
+	sf::Texture stateTexture_;
+	std::array<std::uint8_t, 512> scratch_;
+
 	sf::Shader shader_;
 	bool dirty_;
 };
