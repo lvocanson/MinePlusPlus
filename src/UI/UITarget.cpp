@@ -46,7 +46,7 @@ void UITarget::draw(const Button& button)
 	rect_.setSize(rect.size);
 	rect_.setFillColor({0x79, 0xB6, 0x1E, 0xFF});
 
-	text_.setString(button.text.data());
+	text_.setString(std::u32string{button.text});
 	sf::FloatRect bounds = text_.getLocalBounds();
 	text_.setOrigin(bounds.getCenter());
 	text_.setPosition(rect.getCenter());
@@ -57,7 +57,7 @@ void UITarget::draw(const Button& button)
 
 void UITarget::draw(const Text& text)
 {
-	text_.setString(text.string.data());
+	text_.setString(std::u32string{text.string});
 	sf::FloatRect bounds = text_.getLocalBounds();
 	switch (text.origin)
 	{
