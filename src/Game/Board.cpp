@@ -1,9 +1,11 @@
 #include "Board.h"
-#include "Utils/CircularBuffer.h"
 #include "Utils/MyRandom.h"
+#include "Utils/Overloaded.h"
 #include <algorithm>
 #include <cassert>
 #include <limits>
+#include <utility>
+#include <variant>
 
 namespace
 {
@@ -90,7 +92,8 @@ Board::Board()
 	, mineCount_{}
 	, flagCount_{}
 	, openCount_{}
-	, cells_{} {}
+	, cells_{}
+{}
 
 bool Board::isSizeValid(const Vec2s& size)
 {
@@ -217,22 +220,58 @@ std::size_t Board::moveMine(std::size_t index)
 	return idx;
 }
 
-struct Board::OpenImpl
+struct Board::SeedStack
 {
-	static constexpr std::size_t FRONTLINE_SIZE = 512;
+#ifdef MPP_BOARD_FIXED_SEED_STACK_CAPACITY
+	static constexpr std::size_t CAPACITY = MPP_BOARD_FIXED_SEED_STACK_CAPACITY;
+#else
+	static constexpr std::size_t CAPACITY = 512;
+#endif // MPP_BOARD_FIXED_SEED_STACK_CAPACITY
 
-	// Frontline buffer used for BFS expansion.
-	// If it fills up (large open area with few mines), we fall back to a full scan.
-	CircularBuffer<std::size_t, FRONTLINE_SIZE> frontline;
+	struct Fixed { std::size_t buf[CAPACITY]; std::size_t top = 0; };
+	struct Heap { std::vector<std::size_t> vec; };
 
-	// If true, indicates that the frontline was full when we needed to push a cell
-	// to it. We then need to iterate over all cell to retrieve this missed cell.
-	bool needFullScan;
+	std::variant<Fixed, Heap> store;
 
-	bool mineOpened;
+	bool empty() const
+	{
+		return std::visit(Overloaded
+			{
+				[](const Fixed& f) { return f.top == 0; },
+				[](const Heap& h) { return h.vec.empty(); }
+			}, store);
+	}
 
-	bool hasWork() const { return !frontline.isEmpty() || needFullScan; };
-	void pushToFrontline(std::size_t idx) { needFullScan |= !frontline.tryPush(idx); }
+	std::size_t pop()
+	{
+		return std::visit(Overloaded
+			{
+				[](Fixed& f) { return f.buf[--f.top]; },
+				[](Heap& h) { std::size_t i = h.vec.back(); h.vec.pop_back(); return i; }
+			}, store);
+	}
+
+	void push(std::size_t index)
+	{
+		std::visit(Overloaded
+			{
+				[&](Fixed& f)
+				{
+					if (f.top < CAPACITY)
+					{
+						f.buf[f.top++] = index;
+						return;
+					}
+					// Overflow: switch to the heap alternative, carrying the buffered seeds.
+					Heap h;
+					h.vec.reserve(CAPACITY * 2);
+					h.vec.assign(f.buf, f.buf + f.top);
+					h.vec.push_back(index);
+					store.emplace<Heap>(std::move(h));
+				},
+				[&](Heap& h) { h.vec.push_back(index); }
+			}, store);
+	}
 };
 
 bool Board::open(std::size_t index)
@@ -243,63 +282,47 @@ bool Board::open(std::size_t index)
 	if (first.flagged)
 		return false;
 
-	OpenImpl impl{};
+	bool mineOpened = false;
+	SeedStack stack;
 
 	if (!first.opened)
 	{
-		// Opening a fresh cell:
-		// - If it's a mine or has adjacent mines, handle it directly.
-		// - Otherwise, start BFS expansion.
-
-		if (openCell(first))
+		if (first.mined)
+		{
+			openCell(first);
 			return true;
+		}
 
 		if (first.adjacentMines)
+		{
+			openCell(first);
 			return false;
+		}
 
-		auto neighbours = getNeighboursOf(toCoordinates(index));
-		openOrPush(neighbours, impl);
+		stack.push(index);
 	}
 	else
 	{
-		// Re-opening an already opened cell (safe chording):
-		// Only open neighbours if the number of flagged cells
-		// matches the number of adjacent mines.
+		// Chording: only expand if the flag count matches
+		auto coordinates = toCoordinates(index);
 		std::size_t flaggedNeighbourCount = 0;
-
-		auto neighbours = getNeighboursOf(toCoordinates(index));
-		auto newEnd = neighbours.begin();
-
-		// Compact the non flagged neighbours in place. newEnd never runs
-		// ahead of the read cursor, so no entry is overwritten before use.
-		for (auto& coo : neighbours)
+		for (auto& coo : getNeighboursOf(coordinates))
 		{
-			if (cells_[toIndex(coo)].flagged)
-				++flaggedNeighbourCount;
-			else
-				*newEnd++ = coo;
+			flaggedNeighbourCount += cells_[toIndex(coo)].flagged;
 		}
 
 		if (flaggedNeighbourCount != first.adjacentMines)
 			return false;
 
-		neighbours.count = std::size_t(newEnd - neighbours.begin());
-		openOrPush(neighbours, impl);
+		chord(coordinates, stack, mineOpened);
 	}
 
-	// BFS expansion phase:
-	// Repeatedly open safe neighbours from the frontline.
-	// Fulls scan is needed if some cells were marked as frontline but
-	// could not be pushed into the buffer due to its capacity limit.
-	// The full scan finds those missed cells and continues the expansion.
-	while (impl.hasWork())
+	while (!stack.empty())
 	{
-		computeFrontline(impl);
-		if (impl.needFullScan)
-			fullScan(impl);
+		fillFrom(stack.pop(), stack, mineOpened);
 	}
 
-	return impl.mineOpened;
+	return mineOpened;
 }
 
 void Board::flag(std::size_t index)
@@ -340,82 +363,102 @@ bool Board::openCell(Cell& cell)
 	cell.opened = true;
 	flagCount_ -= cell.flagged;
 	cell.flagged = false;
-	cell.frontline = false;
 	++openCount_;
 	return cell.mined;
 }
 
-// Open every unopened neighbour with adjacent mines.
-// Push every unopened neigbours without adajcent mines.
-void Board::openOrPush(NeighbourRange& neighbours, OpenImpl& impl)
+void Board::chord(const Vec2s& cursor, SeedStack& stack, bool& mineOpened)
 {
-	for (auto& coo : neighbours)
+	for (auto& coo : getNeighboursOf(cursor))
 	{
 		std::size_t index = toIndex(coo);
 		auto& cell = cells_[index];
 
+		if (cell.opened || cell.flagged)
+			continue;
+
+		if (cell.adjacentMines)
+			mineOpened |= openCell(cell);
+		else
+			stack.push(index);
+	}
+}
+
+void Board::fillFrom(std::size_t index, SeedStack& stack, bool& mineOpened)
+{
+	auto& seed = cells_[index];
+	if (seed.opened || seed.adjacentMines)
+		return;
+
+	// Row limits
+	std::size_t width = size_.x;
+	std::size_t rBeg = index / width * width;
+	std::size_t rEnd = rBeg + width - 1;
+
+	// Open row (left and right) until numbers
+	mineOpened |= openCell(seed);
+	std::size_t l = index, r = index;
+
+	while (l > rBeg)
+	{
+		auto& cell = cells_[l - 1];
+		if (cell.opened)
+			break;
+
+		mineOpened |= openCell(cell);
+		if (cell.adjacentMines)
+			break;
+
+		--l;
+	}
+
+	while (r < rEnd)
+	{
+		auto& cell = cells_[r + 1];
+		if (cell.opened)
+			break;
+
+		mineOpened |= openCell(cell);
+		if (cell.adjacentMines)
+			break;
+
+		++r;
+	}
+
+	std::size_t a = (l > rBeg) ? l - 1 : l;
+	std::size_t b = (r < rEnd) ? r + 1 : r;
+
+	if (index >= width)
+		scanRow(a - width, b - width, stack, mineOpened);
+	if (index + width < cells_.size())
+		scanRow(a + width, b + width, stack, mineOpened);
+}
+
+void Board::scanRow(std::size_t l, std::size_t r, SeedStack& stack, bool& mineOpened)
+{
+	for (std::size_t i = l; i <= r; ++i)
+	{
+		auto& cell = cells_[i];
 		if (cell.opened)
 			continue;
 
 		if (cell.adjacentMines)
 		{
-			impl.mineOpened |= openCell(cell);
+			// Can be opened now without recursion
+			mineOpened |= openCell(cell);
+			continue;
 		}
-		else if (!cell.frontline)
+
+		stack.push(i);
+		while (i < r)
 		{
-			cell.frontline = true;
-			impl.pushToFrontline(index);
-		}
-	}
-}
+			auto next = cells_[i + 1];
+			if (next.opened || next.adjacentMines)
+				break;
 
-// Core BFS algorithm.
-void Board::computeFrontline(OpenImpl& impl)
-{
-	while (!impl.frontline.isEmpty())
-	{
-		std::size_t index = impl.frontline.pop();
-		auto& cell = cells_[index];
-		assert(!cell.opened && cell.frontline);
-
-		openCell(cell);
-		auto neighbours = getNeighboursOf(toCoordinates(index));
-		openOrPush(neighbours, impl);
-	}
-}
-
-// Iterate over all cells and check for missed frontline cells.
-// Needed if the frontline buffer overflows.
-void Board::fullScan(OpenImpl& impl)
-{
-	impl.needFullScan = false;
-	for (std::size_t i = 0; i < cells_.size(); ++i)
-	{
-		auto& cell = cells_[i];
-		if (cell.frontline)
-		{
-			openCell(cell);
-			cleanFrontline(impl);
-
-			auto neighbours = getNeighboursOf(toCoordinates(i));
-			openOrPush(neighbours, impl);
-		}
-	}
-}
-
-// Remove invalid frontline cells from the frontline.
-// Needed if we want to open while full scanning.
-void Board::cleanFrontline(OpenImpl& impl)
-{
-	std::size_t size = impl.frontline.size();
-	for (std::size_t i = 0; i < size; ++i)
-	{
-		std::size_t index = impl.frontline.pop();
-		auto& cell = cells_[index];
-
-		if (cell.frontline && !cell.opened)
-		{
-			impl.frontline.push(index);
+			// skip the remaining non-opened cells
+			// will be opened on the next fillFrom
+			++i;
 		}
 	}
 }

@@ -11,7 +11,6 @@ struct Cell
 	bool mined                 : 1;
 	bool opened                : 1;
 	bool flagged               : 1;
-	bool frontline             : 1;
 };
 
 // Signed offset between two Vec2s.
@@ -106,12 +105,11 @@ private: // setup helpers
 
 private: // open helpers
 
-	struct OpenImpl;
+	struct SeedStack;
 	bool openCell(Cell& cell);
-	void openOrPush(NeighbourRange& neighbours, OpenImpl& impl);
-	void computeFrontline(OpenImpl& impl);
-	void fullScan(OpenImpl& impl);
-	void cleanFrontline(OpenImpl& impl);
+	void chord(const Vec2s& cursor, SeedStack& stack, bool& mineOpened);
+	void fillFrom(std::size_t index, SeedStack& stack, bool& mineOpened);
+	void scanRow(std::size_t l, std::size_t r, SeedStack& stack, bool& mineOpened);
 
 private:
 
