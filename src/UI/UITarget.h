@@ -30,11 +30,11 @@ private:
 	static constexpr std::size_t GLYPH_CAPACITY = 32; // Trade memory for draw calls
 	static constexpr std::size_t VERTEX_CAPACITY = GLYPH_CAPACITY * VERTICES_PER_GLYPH;
 
-	void addGlyph(const sf::Glyph& fillGlyph, const sf::Glyph& outlineGlyph, sf::Vector2f pen);
+	void addGlyph(const sf::Glyph& fillGlyph, const sf::Glyph& outlineGlyph, sf::Vector2f pen, sf::Color color);
 	void flushText();
 
 	template <class Sequence>
-	void pushText(Sequence&& sequence, sf::Vector2f position, Text::Origin origin);
+	void pushText(Sequence&& sequence, sf::Vector2f position, Text::Origin origin, sf::Color color);
 
 	sf::RenderTarget& target_;
 	sf::View view_;

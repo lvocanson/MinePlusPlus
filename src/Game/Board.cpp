@@ -225,7 +225,7 @@ struct Board::SeedStack
 #ifdef MPP_BOARD_FIXED_SEED_STACK_CAPACITY
 	static constexpr std::size_t CAPACITY = MPP_BOARD_FIXED_SEED_STACK_CAPACITY;
 #else
-	static constexpr std::size_t CAPACITY = 512;
+	static constexpr std::size_t CAPACITY = 32;
 #endif // MPP_BOARD_FIXED_SEED_STACK_CAPACITY
 
 	struct Fixed { std::size_t buf[CAPACITY]; std::size_t top = 0; };

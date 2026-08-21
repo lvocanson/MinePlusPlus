@@ -22,6 +22,8 @@ public:
 
 private:
 
+	void updateDiagnostic();
+
 	Minesweeper& game_;
 	std::string diagnosticStr_;
 	Text widthText_, heightText_, minesText_, diagnosticText_;

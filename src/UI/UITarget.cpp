@@ -168,13 +168,13 @@ UITarget::~UITarget()
 	target_.setView(view_);
 }
 
-void UITarget::addGlyph(const sf::Glyph& fillGlyph, const sf::Glyph& outlineGlyph, sf::Vector2f pen)
+void UITarget::addGlyph(const sf::Glyph& fillGlyph, const sf::Glyph& outlineGlyph, sf::Vector2f pen, sf::Color color)
 {
 	if (batchCount_ + VERTICES_PER_GLYPH > VERTEX_CAPACITY)
 		flushText();
 
 	writeGlyphQuad(&outlineBatch_[batchCount_], outlineGlyph, pen, OUTLINE_COLOR);
-	writeGlyphQuad(&fillBatch_[batchCount_], fillGlyph, pen, FILL_COLOR);
+	writeGlyphQuad(&fillBatch_[batchCount_], fillGlyph, pen, color);
 	batchCount_ += VERTICES_PER_GLYPH;
 }
 
@@ -193,7 +193,7 @@ void UITarget::flushText()
 }
 
 template <class Sequence>
-void UITarget::pushText(Sequence&& sequence, sf::Vector2f position, Text::Origin origin)
+void UITarget::pushText(Sequence&& sequence, sf::Vector2f position, Text::Origin origin, sf::Color color)
 {
 	sf::Vector2f offset = position - anchorOf(textSize(sequence), origin);
 	GlyphLayout layout;
@@ -204,7 +204,7 @@ void UITarget::pushText(Sequence&& sequence, sf::Vector2f position, Text::Origin
 				codePoint,
 				[&](char32_t cp, const sf::Glyph& glyph, sf::Vector2f pen)
 				{
-					addGlyph(glyph, FONT_REF.getGlyph(cp, FONT_SIZE, false, OUTLINE_THICKNESS), pen + offset);
+					addGlyph(glyph, FONT_REF.getGlyph(cp, FONT_SIZE, false, OUTLINE_THICKNESS), pen + offset, color);
 				});
 		});
 }
@@ -217,12 +217,12 @@ void UITarget::draw(const Button& button)
 	rect_.setFillColor({0x79, 0xB6, 0x1E, 0xFF});
 	target_.draw(rect_);
 
-	pushText(codePointsOf(button.text), rect.getCenter(), Text::Middle);
+	pushText(codePointsOf(button.text), rect.getCenter(), Text::Middle, FILL_COLOR);
 }
 
 void UITarget::draw(const Text& text)
 {
-	pushText(codePointsOf(text.string), sf::Vector2f(text.position), text.origin);
+	pushText(codePointsOf(text.string), sf::Vector2f(text.position), text.origin, text.color);
 }
 
 void UITarget::draw(const NumberField& field)
@@ -233,7 +233,7 @@ void UITarget::draw(const NumberField& field)
 	rect_.setFillColor(sf::Color::White);
 	target_.draw(rect_);
 
-	pushText(codePointsOf(field.value), rect.getCenter(), Text::Middle);
+	pushText(codePointsOf(field.value), rect.getCenter(), Text::Middle, FILL_COLOR);
 }
 
 void UITarget::draw(const Cursor& cursor)
