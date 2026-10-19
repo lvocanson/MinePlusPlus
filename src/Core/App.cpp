@@ -2,37 +2,22 @@
 #include "Game/Resources.h"
 #include "UI/UITarget.h"
 #include "Utils/Overloaded.h"
-#include <SFML/Graphics/RenderTexture.hpp>
 #include <chrono>
 #include <cstdlib>
 #include <cmath>
 
-namespace
-{
-
-sf::Vector2u getDefaultWindowSize()
-{
-	sf::Vector2u screenSize = sf::VideoMode::getDesktopMode().size;
-	return sf::Vector2u(sf::Vector2f(screenSize) * 0.75f);
-}
-
-sf::ContextSettings getDefaultContextSettings()
-{
-	return sf::ContextSettings
-	{
-		.antiAliasingLevel = sf::RenderTexture::getMaximumAntiAliasingLevel()
-	};
-}
-
-} // namespace
-
 App::App()
-	: window_(sf::VideoMode(getDefaultWindowSize()), "Mine++", sf::State::Windowed, getDefaultContextSettings())
-	, clearColor_({0x31, 0x4D, 0x79, 0x00})
+	: clearColor_{0x31, 0x4D, 0x79}
 	, isMouseDraggingCamera_(false)
+	, mousePos_{}
 {
-	window_.setVerticalSyncEnabled(true);
-	std::visit([&](auto& ui) { ui(UIEvent::Resized{*this, sf::Vector2i(window_.getSize())}); }, ui_);
+	window_.open(false);
+	if (window_.isOpen())
+		setupEvents();
+
+	view_.viewport = Vec2f(window_.getSize());
+	view_.reset();
+	std::visit([&](auto& ui) { ui(UIEvent::Resized{*this, window_.getSize()}); }, ui_);
 }
 
 int App::run()
@@ -40,23 +25,17 @@ int App::run()
 	auto lastFrame = std::chrono::steady_clock::now();
 	while (window_.isOpen())
 	{
-		pollEvents();
-
 		auto now = std::chrono::steady_clock::now();
 		float dt = std::chrono::duration_cast<std::chrono::nanoseconds>(now - lastFrame).count() / 1e9f;
 		lastFrame = now;
-		game_.update(dt);
+		game_.update(view_, dt);
 
-		window_.clear(clearColor_);
+		Canvas canvas = window_.beginFrame(clearColor_);
 		{
-			game_.render(window_);
+			game_.render(canvas, view_);
 
-			UITarget uiTarget(window_);
-			Overloaded visitor
-			{
-				[](std::monostate&) {},
-				[&](auto& ui) { ui.render(uiTarget); }
-			};
+			UITarget uiTarget(canvas);
+			auto visitor = [&](auto& ui) { ui.render(uiTarget); };
 			std::visit(visitor, ui_);
 		}
 		window_.display();
@@ -64,135 +43,97 @@ int App::run()
 		processCommands();
 	}
 
+	audio_.waitUntilIdle(Audio::Track::Effect, std::chrono::seconds(2));
 	return EXIT_SUCCESS;
 }
 
 void App::resetView()
 {
-	window_.setView(window_.getDefaultView());
+	view_.reset();
 }
 
-void App::centerView(sf::FloatRect target)
+void App::setViewTarget(Rectf target)
 {
-	sf::Vector2f windowSize(window_.getSize());
-	float windowAspect = windowSize.x / windowSize.y;
-	float rectAspect = target.size.x / target.size.y;
-
-	sf::Vector2f viewSize;
-	if (rectAspect > windowAspect)
-	{
-		viewSize.x = target.size.x;
-		viewSize.y = target.size.x / windowAspect;
-	}
-	else
-	{
-		viewSize.y = target.size.y;
-		viewSize.x = target.size.y * windowAspect;
-	}
-
-	sf::View view = window_.getView();
-	view.setCenter(target.getCenter());
-	view.setSize(viewSize);
-	window_.setView(view);
+	view_.fit(target);
 }
 
-void App::pollEvents()
+void App::setupEvents()
 {
-	Overloaded visitor
-	{
-		[&](const sf::Event::Closed& event)
-		{
-			window_.close();
-		},
-
-		[&](const sf::Event::Resized& event)
+	auto hwnd = window_.getHandle();
+	mfb_set_resize_callback(
+		[this](mfb_window*, int width, int height)
 		{
 			// Keep the whole previous view visible after resizing by zooming out if needed.
-			const sf::View& view = window_.getView();
-			sf::Vector2f center = view.getCenter();
-			sf::Vector2f size = view.getSize();
-			centerView({center - size / 2.f, size});
-			std::visit([&](auto& ui) { ui(UIEvent::Resized{*this, sf::Vector2i(window_.getSize())}); }, ui_);
+			Vec2f visible = view_.getVisibleSize();
+			view_.viewport = Vec2f(Vec2i{width, height});
+			view_.fit({view_.center - visible / 2.f, visible});
+			std::visit([&](auto& ui) { ui(UIEvent::Resized{*this, Vec2i{width, height}}); }, ui_);
 		},
+		hwnd);
 
-		[&](const sf::Event::MouseButtonPressed& event)
+	mfb_set_mouse_button_callback(
+		[this](mfb_window*, mfb_mouse_button btn, mfb_key_mod, bool pressed)
 		{
-			if (event.button == sf::Mouse::Button::Middle)
+			if (btn == MFB_MOUSE_MIDDLE)
 			{
-				isMouseDraggingCamera_ = true;
+				isMouseDraggingCamera_ = pressed;
 				return;
 			}
 
-			auto result = std::visit(
-				[&](auto& ui) { return ui(UIEvent::Pressed{*this, event.button, event.position}); },
-				ui_);
+			UIEvent event = pressed
+			                ? UIEvent{UIEvent::Pressed{*this, btn, mousePos_}}
+			                : UIEvent{UIEvent::Released{*this, btn, mousePos_}};
+			auto result = std::visit([&](auto& ui) { return event.visit(ui); }, ui_);
 			if (result == UIEvent::Ignored)
 			{
-				sf::Vector2f position = window_.mapPixelToCoords(event.position);
-				game_.dispatchWorldEvent(WorldEvent::Pressed{*this, event.button, position});
+				Vec2f position = view_.toWorld().apply(Vec2f(mousePos_));
+				game_.dispatchWorldEvent(
+					pressed
+					? WorldEvent{WorldEvent::Pressed{*this, btn, position}}
+					: WorldEvent{WorldEvent::Released{*this, btn, position}});
 			}
-		},
-
-		[&](const sf::Event::MouseButtonReleased& event)
-		{
-			if (event.button == sf::Mouse::Button::Middle)
-			{
-				isMouseDraggingCamera_ = false;
-				return;
-			}
-
-			auto result = std::visit(
-				[&](auto& ui) { return ui(UIEvent::Released{*this, event.button, event.position}); },
-				ui_);
-			if (result == UIEvent::Ignored)
-			{
-				sf::Vector2f position = window_.mapPixelToCoords(event.position);
-				game_.dispatchWorldEvent(WorldEvent::Released{*this, event.button, position});
-			}
-			else
+			else if (!pressed)
 			{
 				// Any UI element that consumes a release acts as a click
 				audio_.play(Resources::Sounds::click1);
 			}
 		},
+		hwnd);
 
-		[&](const sf::Event::MouseWheelScrolled& event)
+	mfb_set_mouse_scroll_callback(
+		[this](mfb_window*, mfb_key_mod, float dx, float dy)
 		{
 			constexpr float sensitivity = -0.1f; // TODO: parameter + config file
-			float factor = std::pow(2.f, event.delta * sensitivity);
-			sf::View view = window_.getView();
-			view.zoom(factor);
-			sf::Vector2f position = window_.mapPixelToCoords(event.position);
-			sf::Vector2f targetPos = window_.mapPixelToCoords(event.position, view);
-			view.move(position - targetPos);
-			window_.setView(view);
+			float factor = std::pow(2.f, (dx + dy) * sensitivity);
+			Vec2f mouse(mousePos_);
+			Vec2f before = view_.toWorld().apply(mouse);
+			view_.zoom /= factor;
+			Vec2f after = view_.toWorld().apply(mouse);
+			view_.center += before - after;
 		},
+		hwnd);
 
-		[&](const sf::Event::MouseMovedRaw& event)
+	mfb_set_mouse_move_callback(
+		[this](mfb_window*, int x, int y)
 		{
+			Vec2i newMousePos{x, y};
 			if (isMouseDraggingCamera_)
 			{
 				constexpr float sensitivity = -1.f; // TODO: parameter + config file
-				auto windowSize = sf::Vector2f(window_.getSize());
-				// Assuming view and windowSize have the same aspect ratio
-				float viewRatio = window_.getView().getSize().x / windowSize.x;
-				auto delta = sensitivity * viewRatio * sf::Vector2f(event.delta);
-				sf::View view = window_.getView();
-				view.move(delta.rotatedBy(view.getRotation()));
-				window_.setView(view);
+				Transform toWorld = view_.toWorld();
+				Vec2f drag = toWorld.apply(Vec2f(newMousePos)) - toWorld.apply(Vec2f(mousePos_));
+				view_.center += drag * sensitivity;
 			}
+			mousePos_ = newMousePos;
 		},
+		hwnd);
 
-		[&](const sf::Event::TextEntered& event)
+	mfb_set_char_input_callback(
+		[this](mfb_window*, unsigned int code)
 		{
-			std::visit([&](auto& ui) { ui(UIEvent::Typed{*this, event.unicode}); }, ui_);
+			std::visit([&](auto& ui) { ui(UIEvent::Typed{*this, char32_t(code)}); }, ui_);
 		},
-
-		[](const auto& ignored) {}
-	};
-
-	while (auto event = window_.pollEvent())
-		event->visit(visitor);
+		hwnd);
 }
 
 void App::processCommands()
@@ -218,7 +159,7 @@ void App::processCommands()
 		{
 			resetView();
 			cmd.swapper(ui_);
-			std::visit([&](auto& ui) { ui(UIEvent::Resized{*this, sf::Vector2i(window_.getSize())}); }, ui_);
+			std::visit([&](auto& ui) { ui(UIEvent::Resized{*this, window_.getSize()}); }, ui_);
 		}
 	};
 

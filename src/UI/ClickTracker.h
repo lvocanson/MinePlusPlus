@@ -1,5 +1,5 @@
 #pragma once
-#include <SFML/System/Vector2.hpp>
+#include "Core/Vec2.h"
 #include <functional>
 #include <initializer_list>
 
@@ -11,6 +11,6 @@ class ClickTracker
 
 public:
 
-	bool registerPress(sf::Vector2i position, std::initializer_list<std::reference_wrapper<Button>> buttons);
-	bool isClicked(Button& button, sf::Vector2i position);
+	bool registerPress(Vec2i position, std::initializer_list<std::reference_wrapper<Button>> buttons);
+	bool isClicked(Button& button, Vec2i position);
 };

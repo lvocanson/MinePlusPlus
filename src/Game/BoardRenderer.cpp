@@ -1,25 +1,15 @@
 #include "BoardRenderer.h"
 #include "Board.h"
+#include "Core/View.h"
 #include "Game/Resources.h"
 #include <algorithm>
 #include <cassert>
+#include <limits>
 
 namespace
 {
 
 using Resources::Textures::Tile;
-
-// The state texture is RGBA8, the smallest format SFML exposes, and holds the
-// board as one flat byte array: four consecutive cells share a texel, one Tile
-// per channel. Laying it out flat rather than one texture row per board row
-// avoids padding every row, and keeps the height far below GL_MAX_TEXTURE_SIZE
-// for boards that are very tall but narrow.
-constexpr std::size_t CELLS_PER_TEXEL = 4;
-
-// Power of two, so the shader can address a cell with shifts and masks only.
-constexpr std::size_t STATE_TEX_WIDTH_LOG2 = 10;
-constexpr std::size_t STATE_TEX_WIDTH = std::size_t(1) << STATE_TEX_WIDTH_LOG2;
-constexpr std::size_t CELLS_PER_TEX_ROW = STATE_TEX_WIDTH * CELLS_PER_TEXEL;
 
 constexpr std::uint8_t toByte(Tile tile)
 {
@@ -30,6 +20,13 @@ Tile tileAt(const Board& board, const BoardRenderer::State& state, std::size_t i
 {
 	using Reveal = BoardRenderer::Reveal;
 	const Cell& cell = board.getCellAt(index);
+
+	// Overrides the flag: a revealed running bomb always shows its own skin
+	if (cell.mined && (state.reveal != Reveal::None || cell.opened)
+	    && std::ranges::find(state.runningMineIndexes, index) != state.runningMineIndexes.end())
+	{
+		return Tile::OpenedRunningMine;
+	}
 
 	if (cell.flagged)
 	{
@@ -60,102 +57,46 @@ Tile tileAt(const Board& board, const BoardRenderer::State& state, std::size_t i
 
 } // namespace
 
-BoardRenderer::BoardRenderer()
-	: scratch_{}
-	, shader_(Resources::Shaders::cell())
-	, dirty_(true)
+// TODO: nearest sampling without mipmaps, zoomed out boards alias
+// TODO: every pixel is tested against the board, clipping each row to the board would skip the empty space
+void BoardRenderer::render(Canvas canvas, const View& view, const Board& board, const State& state)
 {
-	shader_.setUniform("atlasTex", sf::Shader::CurrentTexture);
-	shader_.setUniform("atlasCellSize", Resources::Textures::cellSize);
-	shader_.setUniform("atlasTexSize", sf::Vector2f(Resources::Textures::cellsAtlas.getSize()));
-	shader_.setUniform("stateTexWidthLog2", int(STATE_TEX_WIDTH_LOG2));
-}
+	using Resources::Textures::cellsAtlas;
+	constexpr int CELL_SIZE = Resources::Textures::cellSize;
+	const int atlasColumns = cellsAtlas.size.x / CELL_SIZE;
 
-void BoardRenderer::resize(const Board& board)
-{
-	Vec2s size = board.getSize();
+	Vec2s boardSize = board.getSize();
+	Vec2f boardLimit(boardSize);
+	Transform toWorld = view.toWorld();
 
-	boardQuad_.setPrimitiveType(sf::PrimitiveType::TriangleStrip);
-	boardQuad_.resize(4);
-	boardQuad_[0].position = {0.f, 0.f};
-	boardQuad_[1].position = {float(size.x), 0.f};
-	boardQuad_[2].position = {0.f, float(size.y)};
-	boardQuad_[3].position = {float(size.x), float(size.y)};
+	std::size_t cachedIndex = std::numeric_limits<std::size_t>::max();
+	const std::uint32_t* tilePixels = nullptr;
 
-	// Fails past GL_MAX_TEXTURE_SIZE rows, which is 16384 cells of height on most
-	// drivers: a full 67 million cells at this texture width.
-	std::size_t cellCount = size.x * size.y;
-	std::size_t texRows = (cellCount + CELLS_PER_TEX_ROW - 1) / CELLS_PER_TEX_ROW;
-	[[maybe_unused]] bool resized = stateTexture_.resize({unsigned(STATE_TEX_WIDTH), unsigned(texRows)});
-	assert(resized);
-
-	// Rebinds the state texture: resizing it gives the shader a new GL object.
-	shader_.setUniform("stateTex", stateTexture_);
-	shader_.setUniform("boardSize", sf::Vector2f(float(size.x), float(size.y)));
-
-	// The freshly allocated texture holds garbage until the first upload.
-	dirty_ = true;
-}
-
-void BoardRenderer::update(const Board& board, const State& state)
-{
-	if (!dirty_) return;
-	dirty_ = false;
-
-	Vec2s size = board.getSize();
-	for (std::size_t first = 0, cellCount = size.x * size.y; first < cellCount; first += scratch_.size())
+	for (int y = 0; y < canvas.size.y; ++y)
 	{
-		std::size_t last = std::min(first + scratch_.size(), cellCount);
+		std::uint32_t* row = canvas.row(y);
+		Vec2f rowStart = toWorld.apply({0.f, float(y) + 0.5f});
 
-		for (std::size_t index = first; index < last; ++index)
-			scratch_[index - first] = toByte(tileAt(board, state, index));
-
-		// Running bombs are patched in place rather than in a second pass over the
-		// board: there are only a handful of them, so skipping the ones outside the
-		// block is cheaper than sorting the list.
-		for (std::size_t index : state.runningMineIndexes)
+		for (int x = 0; x < canvas.size.x; ++x)
 		{
-			if (index < first || index >= last)
+			float fx = float(x) + 0.5f;
+			Vec2f world{rowStart.x + toWorld.a * fx, rowStart.y + toWorld.d * fx};
+			if (!(world.x >= 0.f && world.y >= 0.f && world.x < boardLimit.x && world.y < boardLimit.y))
 				continue;
 
-			const Cell& cell = board.getCellAt(index);
-			assert(cell.mined);
+			Vec2s cell(world);
+			std::size_t index = cell.x + cell.y * boardSize.x;
+			if (index != cachedIndex)
+			{
+				cachedIndex = index;
+				int tile = toByte(tileAt(board, state, index));
+				Vec2i origin = Vec2i{tile % atlasColumns, tile / atlasColumns} * CELL_SIZE;
+				tilePixels = cellsAtlas.pixels.data() + std::size_t(origin.y) * std::size_t(cellsAtlas.size.x) + std::size_t(origin.x);
+			}
 
-			// Overrides the flag: a revealed running bomb always shows its own skin
-			if (state.reveal != Reveal::None || cell.opened)
-				scratch_[index - first] = toByte(Tile::OpenedRunningMine);
+			int u = std::min(int((world.x - float(cell.x)) * CELL_SIZE), CELL_SIZE - 1);
+			int v = std::min(int((world.y - float(cell.y)) * CELL_SIZE), CELL_SIZE - 1);
+			row[x] = tilePixels[v * cellsAtlas.size.x + u];
 		}
-
-		flushScratch(first, last - first);
 	}
-}
-
-void BoardRenderer::flushScratch(std::size_t first, std::size_t count)
-{
-	// A load goes up as a single run of texels inside one texture row, so a row
-	// must be a whole number of loads for a run to never straddle two rows.
-	static_assert(CELLS_PER_TEX_ROW % std::tuple_size_v<decltype(scratch_)> == 0);
-	assert(first % scratch_.size() == 0 && count <= scratch_.size());
-
-	std::size_t firstTexel = first / CELLS_PER_TEXEL;
-	std::size_t texels = (count + CELLS_PER_TEXEL - 1) / CELLS_PER_TEXEL;
-
-	// A board rarely ends on a texel boundary, and only whole texels can be
-	// uploaded. Those trailing cells do not exist, but leaving the previous load
-	// behind would put stale Tiles in the texture.
-	using diff = decltype(scratch_)::difference_type;
-	std::fill(scratch_.begin() + diff(count), scratch_.begin() + diff(texels * CELLS_PER_TEXEL), toByte(Tile::Unopened));
-
-	stateTexture_.update(
-		scratch_.data(),
-		{unsigned(texels), 1},
-		{unsigned(firstTexel % STATE_TEX_WIDTH), unsigned(firstTexel / STATE_TEX_WIDTH)});
-}
-
-void BoardRenderer::render(sf::RenderTarget& target) const
-{
-	sf::RenderStates states;
-	states.texture = &Resources::Textures::cellsAtlas;
-	states.shader = &shader_;
-	target.draw(boardQuad_, states);
 }
