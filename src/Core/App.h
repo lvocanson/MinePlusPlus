@@ -1,13 +1,13 @@
 #pragma once
 #include "AppCommands.h"
 #include "Audio.h"
+#include "View.h"
+#include "Window.h"
 #include "Game/Minesweeper.h"
 #include "Utils/NotCopyable.h"
 #include "Utils/NotMovable.h"
-#include <SFML/Graphics/RenderWindow.hpp>
 #include <array>
 #include <cassert>
-#include <exception>
 
 class App : NotCopyable, NotMovable
 {
@@ -31,25 +31,27 @@ public:
 			if (command.index() == 0)
 				return command.emplace<T>(std::forward<Args>(args)...);
 
-		assert(false && "Command queue is too small");
+		assert(!"Command queue is too small");
 		std::terminate();
 	}
 
 public:
 
 	void resetView();
-	void centerView(sf::FloatRect target);
+	void setViewTarget(Rectf target);
 
 private:
 
-	void pollEvents();
+	void setupEvents();
 	void processCommands();
 
 private:
 
-	sf::RenderWindow window_;
-	sf::Color clearColor_;
+	Window window_;
+	View view_;
+	Color clearColor_;
 	bool isMouseDraggingCamera_;
+	Vec2i mousePos_;
 	Minesweeper game_;
 	AppUI ui_;
 	Audio audio_;

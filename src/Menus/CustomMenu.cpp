@@ -11,8 +11,8 @@
 namespace
 {
 
-constexpr sf::Vector2i BUTTON_SIZE = {150, 28};
-constexpr sf::Vector2i ELEMENTS_GAP = {200, 60};
+constexpr Vec2i BUTTON_SIZE = {150, 28};
+constexpr Vec2i ELEMENTS_GAP = {200, 60};
 
 // Difficulty derived from mine density, corrected for board size and shape.
 //  - density : more mines per cell is harder (main factor)
@@ -41,9 +41,9 @@ std::string_view difficultyLabel(double score)
 	return "Impossible";
 }
 
-sf::Color difficultyColor(double score)
+Color difficultyColor(double score)
 {
-	struct Stop { double at; sf::Color color; };
+	struct Stop { double at; Color color; };
 	static constexpr Stop stops[] =
 	{
 		{0.020, {0x3B, 0x82, 0xF6}}, // Free Win   - blue
@@ -62,8 +62,8 @@ sf::Color difficultyColor(double score)
 		if (score <= stops[i].at)
 		{
 			double t = (score - stops[i - 1].at) / (stops[i].at - stops[i - 1].at);
-			const sf::Color& c0 = stops[i - 1].color;
-			const sf::Color& c1 = stops[i].color;
+			const Color& c0 = stops[i - 1].color;
+			const Color& c1 = stops[i].color;
 			auto lerp = [t](std::uint8_t a, std::uint8_t b)
 			{ return std::uint8_t(a + (int(b) - int(a)) * t); };
 			return {lerp(c0.r, c1.r), lerp(c0.g, c1.g), lerp(c0.b, c1.b)};
@@ -91,15 +91,15 @@ CustomMenu::CustomMenu(Minesweeper& game)
 
 UIEvent::Result CustomMenu::operator()(const UIEvent::Resized& event)
 {
-	sf::Vector2i centerView = event.newSize / 2;
+	Vec2i centerView = event.newSize / 2;
 	widthText_.position = centerView - ELEMENTS_GAP;
-	heightText_.position = centerView - sf::Vector2i(0, ELEMENTS_GAP.y);
-	minesText_.position = centerView + sf::Vector2i(ELEMENTS_GAP.x, -ELEMENTS_GAP.y);
-	diagnosticText_.position = centerView + sf::Vector2i(0, ELEMENTS_GAP.y * 2);
-	widthField_.rect.position = centerView - widthField_.rect.size / 2 - sf::Vector2i(ELEMENTS_GAP.x, 0);
+	heightText_.position = centerView - Vec2i(0, ELEMENTS_GAP.y);
+	minesText_.position = centerView + Vec2i(ELEMENTS_GAP.x, -ELEMENTS_GAP.y);
+	diagnosticText_.position = centerView + Vec2i(0, ELEMENTS_GAP.y * 2);
+	widthField_.rect.position = centerView - widthField_.rect.size / 2 - Vec2i(ELEMENTS_GAP.x, 0);
 	heightField_.rect.position = centerView - heightField_.rect.size / 2;
-	minesField_.rect.position = centerView - minesField_.rect.size / 2 + sf::Vector2i(ELEMENTS_GAP.x, 0);
-	backBtn_.rect.position = centerView - backBtn_.rect.size / 2 + sf::Vector2i(-ELEMENTS_GAP.x, ELEMENTS_GAP.y);
+	minesField_.rect.position = centerView - minesField_.rect.size / 2 + Vec2i(ELEMENTS_GAP.x, 0);
+	backBtn_.rect.position = centerView - backBtn_.rect.size / 2 + Vec2i(-ELEMENTS_GAP.x, ELEMENTS_GAP.y);
 	startBtn_.rect.position = centerView - startBtn_.rect.size / 2 + ELEMENTS_GAP;
 	return UIEvent::Consumed;
 }
@@ -139,7 +139,7 @@ UIEvent::Result CustomMenu::operator()(const UIEvent::Released& event)
 		game_.resize(newSize);
 		game_.setMineCount(minesField_.value);
 		event.app.submitCommand<SwapUI>([&app = event.app](AppUI& ui) { ui.emplace<GameUI>(app); });
-		event.app.submitCommand<ChangeClearColor>(sf::Color{0x79, 0x31, 0x32, 0x00});
+		event.app.submitCommand<ChangeClearColor>(Color{0x79, 0x31, 0x32, 0x00});
 	}
 	else
 		return UIEvent::Ignored;
@@ -197,7 +197,7 @@ void CustomMenu::updateDiagnostic()
 	}
 	else
 	{
-		diagnosticText_.color = sf::Color::White;
+		diagnosticText_.color = Colors::White;
 	}
 
 	diagnosticText_.string = diagnosticStr_;

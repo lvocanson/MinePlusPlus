@@ -1,4 +1,5 @@
 #pragma once
+#include "Core/Vec2.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -13,20 +14,8 @@ struct Cell
 	bool flagged               : 1;
 };
 
-// Signed offset between two Vec2s.
-struct Vec2sDelta
-{
-	std::ptrdiff_t x, y;
-};
-
-struct Vec2s
-{
-	std::size_t x, y;
-
-	// Returns nullopt if the result is not representable as a Vec2s.
-	constexpr std::optional<Vec2s> operator+(const Vec2sDelta&) const;
-	constexpr bool operator==(const Vec2s&) const = default;
-};
+// Returns nullopt if the result is not representable as a Vec2s.
+constexpr std::optional<Vec2s> operator+(const Vec2s& lhs, const Vec2sDelta& rhs);
 
 struct NeighbourRange
 {

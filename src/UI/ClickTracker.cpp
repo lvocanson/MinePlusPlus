@@ -1,7 +1,7 @@
 #include "ClickTracker.h"
 #include "Button.h"
 
-bool ClickTracker::registerPress(sf::Vector2i position, std::initializer_list<std::reference_wrapper<Button>> buttons)
+bool ClickTracker::registerPress(Vec2i position, std::initializer_list<std::reference_wrapper<Button>> buttons)
 {
 	for (Button& btn : buttons)
 		if (btn.rect.contains(position))
@@ -12,7 +12,7 @@ bool ClickTracker::registerPress(sf::Vector2i position, std::initializer_list<st
 	return false;
 }
 
-bool ClickTracker::isClicked(Button& button, sf::Vector2i position)
+bool ClickTracker::isClicked(Button& button, Vec2i position)
 {
 	if (pressed_ == &button)
 	{

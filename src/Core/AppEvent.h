@@ -1,5 +1,5 @@
 #pragma once
-#include <SFML/Window/Event.hpp>
+#include "Window.h"
 #include <variant>
 
 struct AppEvent
@@ -14,19 +14,19 @@ struct UIEvent
 
 	struct Resized : AppEvent
 	{
-		sf::Vector2i newSize;
+		Vec2i newSize;
 	};
 
 	struct Pressed : AppEvent
 	{
-		sf::Mouse::Button button;
-		sf::Vector2i position;
+		mfb_mouse_button button;
+		Vec2i position;
 	};
 
 	struct Released : AppEvent
 	{
-		sf::Mouse::Button button;
-		sf::Vector2i position;
+		mfb_mouse_button button;
+		Vec2i position;
 	};
 
 	struct Typed : AppEvent
@@ -57,14 +57,14 @@ struct WorldEvent
 
 	struct Pressed : AppEvent
 	{
-		sf::Mouse::Button button;
-		sf::Vector2f position;
+		mfb_mouse_button button;
+		Vec2f position;
 	};
 
 	struct Released : AppEvent
 	{
-		sf::Mouse::Button button;
-		sf::Vector2f position;
+		mfb_mouse_button button;
+		Vec2f position;
 	};
 
 	void visit(auto& visitor) const

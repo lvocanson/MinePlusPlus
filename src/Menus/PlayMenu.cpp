@@ -8,8 +8,8 @@
 namespace
 {
 
-constexpr sf::Vector2i BUTTON_SIZE = {150, 28};
-constexpr sf::Vector2i ELEMENTS_GAP = {200, 60};
+constexpr Vec2i BUTTON_SIZE = {150, 28};
+constexpr Vec2i ELEMENTS_GAP = {200, 60};
 
 constexpr std::string_view GAME_MODE_TITLE[PlayMenu::GameMode::Count] =
 {
@@ -48,17 +48,17 @@ PlayMenu::PlayMenu(Minesweeper& game)
 
 UIEvent::Result PlayMenu::operator()(const UIEvent::Resized& event)
 {
-	sf::Vector2i centerView = event.newSize / 2;
-	gameModeText_.position = centerView + sf::Vector2i(gameModeBtn_.rect.size.x / -2, -ELEMENTS_GAP.y);
-	gameModeBtn_.rect.position = centerView - gameModeBtn_.rect.size / 2 + sf::Vector2i(
+	Vec2i centerView = event.newSize / 2;
+	gameModeText_.position = centerView + Vec2i(gameModeBtn_.rect.size.x / -2, -ELEMENTS_GAP.y);
+	gameModeBtn_.rect.position = centerView - gameModeBtn_.rect.size / 2 + Vec2i(
 		                             gameModeBtn_.rect.size.x / 2,
 		                             -ELEMENTS_GAP.y);
-	beginnerBtn_.rect.position = centerView - beginnerBtn_.rect.size / 2 - sf::Vector2i(ELEMENTS_GAP.x, 0);
+	beginnerBtn_.rect.position = centerView - beginnerBtn_.rect.size / 2 - Vec2i(ELEMENTS_GAP.x, 0);
 	intermediateBtn_.rect.position = centerView - intermediateBtn_.rect.size / 2;
-	expertBtn_.rect.position = centerView - expertBtn_.rect.size / 2 + sf::Vector2i(ELEMENTS_GAP.x, 0);
-	backBtn_.rect.position = centerView - backBtn_.rect.size / 2 + sf::Vector2i(-ELEMENTS_GAP.x, ELEMENTS_GAP.y);
+	expertBtn_.rect.position = centerView - expertBtn_.rect.size / 2 + Vec2i(ELEMENTS_GAP.x, 0);
+	backBtn_.rect.position = centerView - backBtn_.rect.size / 2 + Vec2i(-ELEMENTS_GAP.x, ELEMENTS_GAP.y);
 	customBtn_.rect.position = centerView - customBtn_.rect.size / 2 + ELEMENTS_GAP;
-	gameModeDescription_.position = centerView + sf::Vector2i(0, ELEMENTS_GAP.y * 2);
+	gameModeDescription_.position = centerView + Vec2i(0, ELEMENTS_GAP.y * 2);
 	return UIEvent::Consumed;
 }
 
@@ -155,5 +155,5 @@ void PlayMenu::play(App& app, Difficulty d) const
 	}
 
 	app.submitCommand<SwapUI>([&](AppUI& ui) { ui.emplace<GameUI>(app); });
-	app.submitCommand<ChangeClearColor>(sf::Color{0x79, 0x31, 0x32, 0x00});
+	app.submitCommand<ChangeClearColor>(Color{0x79, 0x31, 0x32, 0x00});
 }

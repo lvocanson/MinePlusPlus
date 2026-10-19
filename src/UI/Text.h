@@ -1,6 +1,6 @@
 #pragma once
-#include <SFML/Graphics/Color.hpp>
-#include <SFML/System/Vector2.hpp>
+#include "Core/Color.h"
+#include "Core/Vec2.h"
 #include <string_view>
 
 struct Text
@@ -12,8 +12,8 @@ struct Text
 		BotLeft, Bot, BotRight,
 	};
 
-	sf::Vector2i position;
+	Vec2i position;
 	Origin origin = TopLeft;
 	std::string_view string; // utf-8
-	sf::Color color = sf::Color::White;
+	Color color = Colors::White;
 };

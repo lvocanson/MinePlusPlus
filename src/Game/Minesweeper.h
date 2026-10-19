@@ -2,9 +2,10 @@
 #include "Board.h"
 #include "BoardRenderer.h"
 #include "GameControls.h"
-#include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/System/Clock.hpp>
-#include <SFML/System/Time.hpp>
+#include "Core/Canvas.h"
+#include "Utils/Stopwatch.h"
+
+struct View;
 
 class Minesweeper
 {
@@ -13,7 +14,7 @@ public:
 	Minesweeper();
 
 	const Board& getBoard() const { return board_; }
-	sf::Time getPlayingTime() const { return clock_.getElapsedTime(); }
+	Stopwatch::Clock::duration getPlayingTime() const { return clock_.getElapsedTime(); }
 	bool isGameOver() const { return state_ == Lost || state_ == Won; }
 	bool isLost() const { return state_ == Lost; }
 
@@ -31,8 +32,8 @@ public:
 public:
 
 	void dispatchWorldEvent(const WorldEvent& event);
-	void update(float dt);
-	void render(sf::RenderTarget& target) const;
+	void update(View& view, float dt);
+	void render(Canvas canvas, const View& view) const;
 
 public:
 
@@ -54,8 +55,7 @@ private:
 private:
 
 	Board board_;
-	BoardRenderer renderer_;
-	sf::Clock clock_;
+	Stopwatch clock_;
 	std::optional<Vec2s> pressedCell_;
 	GameControls controls_;
 	bool rendering_;
@@ -71,7 +71,6 @@ private:
 	} state_;
 
 	float rotationSpeed_;
-	sf::Angle frameRotation_;
 
 	// Requested count (game mode parameter), and the indexes of the
 	// running bombs, only filled while playing.

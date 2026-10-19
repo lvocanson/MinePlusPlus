@@ -1,6 +1,6 @@
 #pragma once
 #include "AppUI.h"
-#include <SFML/Graphics/Color.hpp>
+#include "Core/Color.h"
 #include <concepts>
 #include <functional>
 #include <variant>
@@ -9,7 +9,7 @@ struct RequestExit {};
 
 struct ChangeClearColor
 {
-	sf::Color color;
+	Color color;
 };
 
 struct SwapUI

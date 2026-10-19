@@ -1,13 +1,12 @@
 #include "GameControls.h"
 #include "Core/App.h"
 #include "Game/Resources.h"
-#include <SFML/Graphics/View.hpp>
 
 namespace
 {
 
 // World coordinates left of or above the board are not representable as a Vec2s.
-std::optional<Vec2s> toCellCoordinates(sf::Vector2f position)
+std::optional<Vec2s> toCellCoordinates(Vec2f position)
 {
 	if (position.x < 0.f || position.y < 0.f)
 		return std::nullopt;
@@ -20,8 +19,8 @@ void GameControls::operator()(const WorldEvent::Pressed& event)
 {
 	switch (event.button)
 	{
-	case sf::Mouse::Button::Left:
-	case sf::Mouse::Button::Right:
+	case MFB_MOUSE_LEFT:
+	case MFB_MOUSE_RIGHT:
 	{
 		auto& board = event.app.getGame().getBoard();
 		auto coo = toCellCoordinates(event.position);
@@ -38,8 +37,8 @@ void GameControls::operator()(const WorldEvent::Released& event)
 {
 	switch (event.button)
 	{
-	case sf::Mouse::Button::Left:
-	case sf::Mouse::Button::Right:
+	case MFB_MOUSE_LEFT:
+	case MFB_MOUSE_RIGHT:
 	{
 		auto pressedCell = event.app.getGame().getPressedCell();
 		event.app.getGame().setPressedCell(std::nullopt);
@@ -51,7 +50,7 @@ void GameControls::operator()(const WorldEvent::Released& event)
 		if (!coo || pressedCell != *coo)
 			return;
 
-		if (event.button == sf::Mouse::Button::Right)
+		if (event.button == MFB_MOUSE_RIGHT)
 		{
 			auto flags = board.getFlagCount();
 			event.app.getGame().flag(*coo);

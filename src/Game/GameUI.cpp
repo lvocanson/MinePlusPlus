@@ -3,6 +3,7 @@
 #include "Game/Resources.h"
 #include "Menus/MainMenu.h"
 #include "UI/UITarget.h"
+#include <chrono>
 #include <format>
 #include <iterator>
 
@@ -10,7 +11,7 @@ namespace
 {
 
 constexpr int SCREEN_PADDING = 5;
-constexpr sf::Vector2i BUTTON_SIZE = {150, 28};
+constexpr Vec2i BUTTON_SIZE = {150, 28};
 
 }
 
@@ -80,7 +81,7 @@ UIEvent::Result GameUI::operator()(const UIEvent::Released& event)
 	else if (tracker_.isClicked(mainMenuBtn_, event.position))
 	{
 		event.app.submitCommand<SwapUI>(SwapUI::DEFAULT<MainMenu>);
-		event.app.submitCommand<ChangeClearColor>(sf::Color{0x31, 0x4D, 0x79, 0x00});
+		event.app.submitCommand<ChangeClearColor>(Color{0x31, 0x4D, 0x79, 0x00});
 	}
 	else if (tracker_.isClicked(resetCameraBtn_, event.position))
 	{
@@ -96,7 +97,7 @@ void GameUI::render(UITarget& target) const
 	auto& board = game_.getBoard();
 	std::make_signed_t<std::size_t> minesLeft = board.getMineCount() - board.getFlagCount();
 	float bestTime = std::numeric_limits<float>::signaling_NaN(); // TODO
-	auto time = game_.getPlayingTime().asMicroseconds() / 1'000'000;
+	auto time = std::chrono::duration_cast<std::chrono::seconds>(game_.getPlayingTime()).count();
 
 	gameString_.clear();
 	std::format_to(
@@ -116,7 +117,7 @@ void GameUI::render(UITarget& target) const
 void GameUI::centerBoardOnView(App& app) const
 {
 	auto& board = game_.getBoard();
-	sf::Vector2f size = {float(board.getSize().x), float(board.getSize().y)};
-	sf::Vector2f margin = {1.f, 1.f};
-	app.centerView({-margin, size + margin * 2.f});
+	Vec2f size(board.getSize());
+	Vec2f margin{1.f, 1.f};
+	app.setViewTarget({-margin, size + margin * 2.f});
 }

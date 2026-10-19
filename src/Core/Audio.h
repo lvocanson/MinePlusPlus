@@ -1,29 +1,45 @@
 #pragma once
-#include <SFML/Audio/Music.hpp>
-#include <SFML/Audio/Sound.hpp>
-#include <filesystem>
-#include <optional>
+#include "Utils/NotCopyable.h"
+#include "Utils/NotMovable.h"
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <span>
 
 /*
  * Fire and forget sound player.
  */
-class Audio
+class Audio : NotCopyable, NotMovable
 {
 public:
 
-	static constexpr float MAX_VOLUME = 100.f; // SFML range: 0 (mute) to 100
+	enum class Track : std::uint8_t
+	{
+		Effect,
+		Music,
+		Count
+	};
+
+	struct Sound
+	{
+		std::span<const unsigned char> wav;
+		Track track;
+	};
+
+	static constexpr float MAX_VOLUME = 100.f; // 0 (mute) to 100
 
 	Audio();
+	~Audio();
 
-	void play(const std::filesystem::path& file);
-	void play(const sf::SoundBuffer& buffer);
+	void play(const Sound& sound);
+	void waitUntilIdle(Track track, std::chrono::milliseconds timeout) const;
 
 	float getVolume() const { return volume_; }
 	void setVolume(float volume);
 
 private:
 
-	sf::Music music_;
-	std::optional<sf::Sound> sound_;
+	struct State;
+	std::unique_ptr<State> state_;
 	float volume_;
 };

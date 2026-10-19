@@ -1,45 +1,33 @@
-﻿cmake_minimum_required (VERSION 3.12)
+cmake_minimum_required (VERSION 3.28)
 
-set(ENV{VSLANG} 1033)
-
-project ("MinePlusPlus")
-
-if (MSVC)
-	set(CMAKE_C_COMPILER_LAUNCHER   ${CMAKE_COMMAND} -E env VSLANG=1033)
-	set(CMAKE_CXX_COMPILER_LAUNCHER ${CMAKE_COMMAND} -E env VSLANG=1033)
-endif()
+project ("MinePlusPlus" LANGUAGES C CXX)
+# Note: macOS is not an expected target
 
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-include(FetchContent)
-FetchContent_Declare(SFML
-	GIT_REPOSITORY https://github.com/SFML/SFML.git
-	GIT_TAG 3.0.1
-	GIT_SHALLOW ON
-	EXCLUDE_FROM_ALL
-	SYSTEM
-)
-FetchContent_MakeAvailable(SFML)
+add_subdirectory(thirdparty) # Third party dependencies
+add_subdirectory(res) # Resources embedding
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/*.cpp")
-file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/*.h")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
 add_executable(MinePlusPlus ${SOURCES} ${HEADERS})
-target_include_directories(MinePlusPlus PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(MinePlusPlus PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 set_property(TARGET MinePlusPlus PROPERTY CXX_STANDARD 20)
 
-# Multi-processor compilation
 if (MSVC)
-	target_compile_options(${PROJECT_NAME} PRIVATE /MP)
+	target_compile_options(MinePlusPlus PRIVATE /MP /W4 /permissive-)
+else()
+	target_compile_options(MinePlusPlus PRIVATE -Wall -Wextra)
 endif()
 
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
-target_link_libraries(${PROJECT_NAME} PRIVATE SFML::Graphics SFML::Audio)
+target_compile_features(MinePlusPlus PRIVATE cxx_std_20)
+set_target_properties(MinePlusPlus PROPERTIES CXX_EXTENSIONS OFF)
+target_link_libraries(MinePlusPlus PRIVATE minifb::minifb tp::stb miniaudio assets)
 
-add_custom_command(
-	TARGET ${PROJECT_NAME} POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/res"
-	COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/res" "${CMAKE_BINARY_DIR}/res"
-	COMMAND ${CMAKE_COMMAND} -E echo "Replaced the 'res' folder in the output directory."
-)
+if (UNIX AND NOT APPLE)
+	find_package(Threads REQUIRED)
+	target_link_libraries(MinePlusPlus PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+endif()

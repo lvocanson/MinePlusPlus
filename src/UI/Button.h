@@ -1,9 +1,9 @@
 #pragma once
-#include <SFML/Graphics/Rect.hpp>
+#include "Core/Rect.h"
 #include <string_view>
 
 struct Button
 {
-	sf::IntRect rect;
+	Recti rect;
 	std::string_view text;
 };

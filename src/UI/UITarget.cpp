@@ -3,104 +3,112 @@
 #include "Button.h"
 #include "NumberField.h"
 #include "Cursor.h"
-#include <SFML/System/Utf.hpp>
 #include <algorithm>
+#include <cmath>
 
 namespace
 {
 
 constexpr auto& FONT_REF = Resources::Fonts::roboto;
-constexpr unsigned FONT_SIZE = 20;
-constexpr float OUTLINE_THICKNESS = 1.f;
-constexpr sf::Color FILL_COLOR = sf::Color::White;
-constexpr sf::Color OUTLINE_COLOR = sf::Color::Black;
+constexpr int OUTLINE_THICKNESS = 1;
+constexpr Color FILL_COLOR = Colors::White;
+constexpr Color OUTLINE_COLOR = Colors::Black;
 constexpr int CURSOR_WIDTH = 2;
 constexpr int CURSOR_DIST_FROM_TEXT = 2;
-constexpr float RECT_OUTLINE_THICKNESS = 2.f;
-
-// Writes the two triangles of a glyph quad. 'out' must have room for 6 vertices.
-void writeGlyphQuad(sf::Vertex* out, const sf::Glyph& glyph, sf::Vector2f pen, sf::Color color)
-{
-	sf::Vector2f topLeft = pen + glyph.bounds.position;
-	sf::Vector2f botRight = topLeft + glyph.bounds.size;
-	sf::Vector2f uvTopLeft(glyph.textureRect.position);
-	sf::Vector2f uvBotRight = uvTopLeft + sf::Vector2f(glyph.textureRect.size);
-
-	out[0] = {{topLeft.x, topLeft.y}, color, {uvTopLeft.x, uvTopLeft.y}};
-	out[1] = {{botRight.x, topLeft.y}, color, {uvBotRight.x, uvTopLeft.y}};
-	out[2] = {{topLeft.x, botRight.y}, color, {uvTopLeft.x, uvBotRight.y}};
-	out[3] = out[1];
-	out[4] = {{botRight.x, botRight.y}, color, {uvBotRight.x, uvBotRight.y}};
-	out[5] = out[2];
-}
+constexpr int RECT_OUTLINE_THICKNESS = 2;
+constexpr Color RECT_OUTLINE_COLOR = Colors::White;
+constexpr Color BUTTON_COLOR = {0x79, 0xB6, 0x1E};
 
 struct GlyphLayout
 {
-	sf::Vector2f pen{};
+	Vec2f pen{};
 	char32_t previous{};
-	sf::Vector2f inkMin{}, inkMax{};
+	Vec2f inkMin{}, inkMax{};
 	bool hasInk{};
 
-	// Calls sink(codePoint, glyph, pen) for each code point that has a quad.
+	// Calls sink(glyph, pen) for each code point that has a bitmap.
 	template <class Sink>
 	void put(char32_t codePoint, Sink&& sink)
 	{
 		if (codePoint == U'\r')
 			return;
 
-		pen.x += FONT_REF.getKerning(previous, codePoint, FONT_SIZE);
+		pen.x += FONT_REF.getKerning(previous, codePoint);
 		previous = codePoint;
 
 		switch (codePoint)
 		{
-		case U'\n': pen = {0.f, pen.y + FONT_REF.getLineSpacing(FONT_SIZE)};
+		case U'\n': pen = {0.f, pen.y + FONT_REF.getLineSpacing()};
 			return;
-		case U'\t': pen.x += FONT_REF.getGlyph(U' ', FONT_SIZE, false).advance * 4.f;
+		case U'\t': pen.x += FONT_REF.getGlyph(U' ').advance * 4.f;
 			return;
 		default: break;
 		}
 
-		const sf::Glyph& glyph = FONT_REF.getGlyph(codePoint, FONT_SIZE, false);
+		const Glyph& glyph = FONT_REF.getGlyph(codePoint);
 
 		// Whitespace has an advance but nothing to rasterize
-		if (glyph.bounds.size.x != 0.f && glyph.bounds.size.y != 0.f)
+		if (glyph.size.x != 0 && glyph.size.y != 0)
 		{
-			sf::Vector2f min = pen + glyph.bounds.position;
-			sf::Vector2f max = min + glyph.bounds.size;
-			inkMin = hasInk ? sf::Vector2f{std::min(inkMin.x, min.x), std::min(inkMin.y, min.y)} : min;
-			inkMax = hasInk ? sf::Vector2f{std::max(inkMax.x, max.x), std::max(inkMax.y, max.y)} : max;
+			Vec2f min = pen + Vec2f(glyph.offset);
+			Vec2f max = min + Vec2f(glyph.size);
+			inkMin = hasInk ? Vec2f{std::min(inkMin.x, min.x), std::min(inkMin.y, min.y)} : min;
+			inkMax = hasInk ? Vec2f{std::max(inkMax.x, max.x), std::max(inkMax.y, max.y)} : max;
 			hasInk = true;
-			sink(codePoint, glyph, pen);
+			sink(glyph, pen);
 		}
 
 		pen.x += glyph.advance;
 	}
 
-	sf::FloatRect bounds() const
+	Rectf bounds() const
 	{
 		if (!hasInk)
 			return {};
 
-		sf::Vector2f outline(OUTLINE_THICKNESS, OUTLINE_THICKNESS);
+		Vec2f outline{float(OUTLINE_THICKNESS), float(OUTLINE_THICKNESS)};
 		return {inkMin - outline, (inkMax - inkMin) + outline * 2.f};
 	}
 };
 
-sf::Vector2f anchorOf(const sf::FloatRect& bounds, Text::Origin origin)
+Vec2f anchorOf(const Rectf& bounds, Text::Origin origin)
 {
 	switch (origin)
 	{
 	case Text::TopLeft: return bounds.position;
 	case Text::Top: return {bounds.position.x + bounds.size.x / 2.f, bounds.position.y};
-	case Text::TopRight: return bounds.position + sf::Vector2f(bounds.size.x, 0.f);
+	case Text::TopRight: return bounds.position + Vec2f{bounds.size.x, 0.f};
 	case Text::Left: return {bounds.position.x, bounds.position.y + bounds.size.y / 2.f};
 	case Text::Middle: return bounds.getCenter();
 	case Text::Right: return {bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y / 2.f};
-	case Text::BotLeft: return bounds.position + sf::Vector2f(0.f, bounds.size.y);
+	case Text::BotLeft: return bounds.position + Vec2f{0.f, bounds.size.y};
 	case Text::Bot: return {bounds.position.x + bounds.size.x / 2.f, bounds.position.y + bounds.size.y};
 	case Text::BotRight: return bounds.position + bounds.size;
 	default: return {};
 	}
+}
+
+char32_t decodeUtf8(std::string_view::iterator& it, std::string_view::iterator end)
+{
+	constexpr char32_t REPLACEMENT = 0xFFFD;
+
+	auto lead = static_cast<unsigned char>(*it++);
+	int continuations = lead < 0x80 ? 0
+	                    : (lead >> 5) == 0x06 ? 1
+	                    : (lead >> 4) == 0x0E ? 2
+	                    : (lead >> 3) == 0x1E ? 3
+	                    : -1;
+	if (continuations < 0)
+		return REPLACEMENT;
+
+	char32_t codePoint = continuations == 0 ? lead : lead & (0x3F >> continuations);
+	for (int i = 0; i < continuations; ++i, ++it)
+	{
+		if (it == end || (static_cast<unsigned char>(*it) & 0xC0) != 0x80)
+			return REPLACEMENT;
+		codePoint = (codePoint << 6) | (static_cast<unsigned char>(*it) & 0x3F);
+	}
+	return codePoint;
 }
 
 // Decodes UTF-8 on the fly, without any intermediate buffer.
@@ -109,11 +117,7 @@ auto codePointsOf(std::string_view utf8)
 	return [utf8](auto&& put)
 	{
 		for (auto it = utf8.begin(); it != utf8.end();)
-		{
-			char32_t codePoint{};
-			it = sf::Utf8::decode(it, utf8.end(), codePoint);
-			put(codePoint);
-		}
+			put(decodeUtf8(it, utf8.end()));
 	};
 }
 
@@ -135,105 +139,107 @@ auto codePointsOf(std::size_t value)
 }
 
 template <class Sequence>
-sf::FloatRect textSize(Sequence&& sequence)
+Rectf textSize(Sequence&& sequence)
 {
 	GlyphLayout layout;
 	sequence(
 		[&](char32_t codePoint)
 		{
-			layout.put(codePoint, [](char32_t, const sf::Glyph&, sf::Vector2f) {});
+			layout.put(codePoint, [](const Glyph&, Vec2f) {});
 		});
 	return layout.bounds();
 }
 
+Vec2i glyphTopLeft(const Glyph& glyph, Vec2f pen)
+{
+	return Vec2i{int(std::lround(pen.x)), int(std::lround(pen.y))} + glyph.offset;
+}
+
+void drawGlyph(Canvas canvas, const Glyph& glyph, Vec2i topLeft, Color color)
+{
+	const std::uint8_t* bitmap = FONT_REF.getBitmap(glyph);
+	blendCoverage(
+		canvas,
+		{topLeft, glyph.size},
+		color,
+		[&](int x, int y) -> unsigned { return bitmap[y * glyph.size.x + x]; });
+}
+
+// TODO: square dilation, a round stroke would need a distance field
+void drawGlyphOutline(Canvas canvas, const Glyph& glyph, Vec2i topLeft, Color color)
+{
+	const std::uint8_t* bitmap = FONT_REF.getBitmap(glyph);
+	constexpr int T = OUTLINE_THICKNESS;
+	Vec2i grow{T, T};
+
+	blendCoverage(
+		canvas,
+		{topLeft - grow, glyph.size + grow * 2},
+		color,
+		[&](int x, int y) -> unsigned
+		{
+			int left = std::max(x - 2 * T, 0), right = std::min(x, glyph.size.x - 1);
+			int top = std::max(y - 2 * T, 0), bottom = std::min(y, glyph.size.y - 1);
+
+			unsigned coverage = 0;
+			for (int sy = top; sy <= bottom; ++sy)
+				for (int sx = left; sx <= right; ++sx)
+					coverage = std::max<unsigned>(coverage, bitmap[sy * glyph.size.x + sx]);
+			return coverage;
+		});
+}
+
 } // namespace
 
-sf::RectangleShape UITarget::rect_{};
-
-UITarget::UITarget(sf::RenderTarget& target)
-	: target_(target)
-	, view_(target.getView())
-	, batchCount_(0)
-{
-	sf::Vector2f size(target.getSize());
-	target.setView({size / 2.f, size});
-
-	rect_.setOutlineThickness(RECT_OUTLINE_THICKNESS);
-	rect_.setOutlineColor(sf::Color::White);
-}
-
-UITarget::~UITarget()
-{
-	flushText();
-	target_.setView(view_);
-}
-
-void UITarget::addGlyph(const sf::Glyph& fillGlyph, const sf::Glyph& outlineGlyph, sf::Vector2f pen, sf::Color color)
-{
-	if (batchCount_ + VERTICES_PER_GLYPH > VERTEX_CAPACITY)
-		flushText();
-
-	writeGlyphQuad(&outlineBatch_[batchCount_], outlineGlyph, pen, OUTLINE_COLOR);
-	writeGlyphQuad(&fillBatch_[batchCount_], fillGlyph, pen, color);
-	batchCount_ += VERTICES_PER_GLYPH;
-}
-
-void UITarget::flushText()
-{
-	if (batchCount_ == 0)
-		return;
-
-	sf::RenderStates states;
-	states.texture = &FONT_REF.getTexture(FONT_SIZE);
-	states.coordinateType = sf::CoordinateType::Pixels;
-
-	target_.draw(outlineBatch_.data(), batchCount_, sf::PrimitiveType::Triangles, states);
-	target_.draw(fillBatch_.data(), batchCount_, sf::PrimitiveType::Triangles, states);
-	batchCount_ = 0;
-}
-
 template <class Sequence>
-void UITarget::pushText(Sequence&& sequence, sf::Vector2f position, Text::Origin origin, sf::Color color)
+void UITarget::pushText(Sequence&& sequence, Vec2f position, Text::Origin origin, Color color)
 {
-	sf::Vector2f offset = position - anchorOf(textSize(sequence), origin);
-	GlyphLayout layout;
+	Vec2f offset = position - anchorOf(textSize(sequence), origin);
+
+	GlyphLayout outlineLayout;
 	sequence(
 		[&](char32_t codePoint)
 		{
-			layout.put(
+			outlineLayout.put(
 				codePoint,
-				[&](char32_t cp, const sf::Glyph& glyph, sf::Vector2f pen)
+				[&](const Glyph& glyph, Vec2f pen)
 				{
-					addGlyph(glyph, FONT_REF.getGlyph(cp, FONT_SIZE, false, OUTLINE_THICKNESS), pen + offset, color);
+					drawGlyphOutline(canvas_, glyph, glyphTopLeft(glyph, pen + offset), OUTLINE_COLOR);
+				});
+		});
+
+	GlyphLayout fillLayout;
+	sequence(
+		[&](char32_t codePoint)
+		{
+			fillLayout.put(
+				codePoint,
+				[&](const Glyph& glyph, Vec2f pen)
+				{
+					drawGlyph(canvas_, glyph, glyphTopLeft(glyph, pen + offset), color);
 				});
 		});
 }
 
 void UITarget::draw(const Button& button)
 {
-	sf::FloatRect rect(button.rect);
-	rect_.setPosition(rect.position);
-	rect_.setSize(rect.size);
-	rect_.setFillColor({0x79, 0xB6, 0x1E, 0xFF});
-	target_.draw(rect_);
+	fillRect(canvas_, button.rect, BUTTON_COLOR);
+	strokeRect(canvas_, button.rect, RECT_OUTLINE_THICKNESS, RECT_OUTLINE_COLOR);
 
-	pushText(codePointsOf(button.text), rect.getCenter(), Text::Middle, FILL_COLOR);
+	pushText(codePointsOf(button.text), Rectf(button.rect).getCenter(), Text::Middle, FILL_COLOR);
 }
 
 void UITarget::draw(const Text& text)
 {
-	pushText(codePointsOf(text.string), sf::Vector2f(text.position), text.origin, text.color);
+	pushText(codePointsOf(text.string), Vec2f(text.position), text.origin, text.color);
 }
 
 void UITarget::draw(const NumberField& field)
 {
-	sf::FloatRect rect(field.rect);
-	rect_.setPosition(rect.position);
-	rect_.setSize(rect.size);
-	rect_.setFillColor(sf::Color::White);
-	target_.draw(rect_);
+	fillRect(canvas_, field.rect, Colors::White);
+	strokeRect(canvas_, field.rect, RECT_OUTLINE_THICKNESS, RECT_OUTLINE_COLOR);
 
-	pushText(codePointsOf(field.value), rect.getCenter(), Text::Middle, FILL_COLOR);
+	pushText(codePointsOf(field.value), Rectf(field.rect).getCenter(), Text::Middle, FILL_COLOR);
 }
 
 void UITarget::draw(const Cursor& cursor)
@@ -241,16 +247,10 @@ void UITarget::draw(const Cursor& cursor)
 	if (!cursor.field)
 		return;
 
-	sf::FloatRect fieldRect(cursor.field->rect);
-	sf::FloatRect bounds = textSize(codePointsOf(cursor.field->value));
+	Rectf fieldRect(cursor.field->rect);
+	Rectf bounds = textSize(codePointsOf(cursor.field->value));
 
-	sf::Vector2f size = {CURSOR_WIDTH, FONT_REF.getLineSpacing(FONT_SIZE) * 0.9f};
-	rect_.setSize(size);
-	rect_.setFillColor(sf::Color::Black);
-	rect_.setOutlineThickness(0.f);
-	rect_.setPosition(
-		fieldRect.getCenter() + sf::Vector2f(bounds.size.x / 2.f + CURSOR_DIST_FROM_TEXT, -size.y / 2.f));
-
-	target_.draw(rect_);
-	rect_.setOutlineThickness(RECT_OUTLINE_THICKNESS);
+	Vec2f size{float(CURSOR_WIDTH), FONT_REF.getLineSpacing() * 0.9f};
+	Vec2f position = fieldRect.getCenter() + Vec2f{bounds.size.x / 2.f + float(CURSOR_DIST_FROM_TEXT), -size.y / 2.f};
+	fillRect(canvas_, Recti{Vec2i(position), Vec2i(size)}, Colors::Black);
 }

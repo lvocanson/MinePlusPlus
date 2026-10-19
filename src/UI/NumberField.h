@@ -1,10 +1,10 @@
 #pragma once
-#include <SFML/Graphics/Rect.hpp>
+#include "Core/Rect.h"
 #include <limits>
 
 struct NumberField
 {
-	sf::IntRect rect;
+	Recti rect;
 	std::size_t value;
 
 	void add(char32_t c)

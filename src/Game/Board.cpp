@@ -48,10 +48,10 @@ constexpr std::array<Vec2sDelta, 9> dcoordinates
 
 } // namespace
 
-constexpr std::optional<Vec2s> Vec2s::operator+(const Vec2sDelta& rhs) const
+constexpr std::optional<Vec2s> operator+(const Vec2s& lhs, const Vec2sDelta& rhs)
 {
 	Vec2s result;
-	if (!tryAddDelta(x, rhs.x, result.x) || !tryAddDelta(y, rhs.y, result.y))
+	if (!tryAddDelta(lhs.x, rhs.x, result.x) || !tryAddDelta(lhs.y, rhs.y, result.y))
 		return std::nullopt;
 	return result;
 }

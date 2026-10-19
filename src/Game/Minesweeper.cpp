@@ -1,6 +1,8 @@
 #include "Minesweeper.h"
 #include "Utils/MyRandom.h"
+#include "Core/View.h"
 #include <cassert>
+#include <numbers>
 
 Minesweeper::Minesweeper()
 	: rendering_(false)
@@ -35,10 +37,8 @@ void Minesweeper::resize(const Vec2s& size)
 		return;
 
 	board_.resize(size);
-	renderer_.resize(board_);
 	runningBombIndexes_.clear();
 	state_ = Empty;
-	renderer_.makeDirty();
 }
 
 void Minesweeper::setMineCount(std::size_t mineCount)
@@ -64,7 +64,6 @@ void Minesweeper::restart()
 	runningBombIndexes_.clear();
 	clock_.reset();
 	state_ = Ready;
-	renderer_.makeDirty();
 }
 
 void Minesweeper::open(const Vec2s& coordinates)
@@ -106,7 +105,6 @@ void Minesweeper::open(const Vec2s& coordinates)
 		for (auto& index : runningBombIndexes_)
 			index = board_.moveMine(index);
 	}
-	renderer_.makeDirty();
 }
 
 void Minesweeper::flag(const Vec2s& coordinates)
@@ -122,7 +120,6 @@ void Minesweeper::flag(const Vec2s& coordinates)
 
 	std::size_t index = board_.toIndex(coordinates);
 	board_.flag(index);
-	renderer_.makeDirty();
 }
 
 void Minesweeper::dispatchWorldEvent(const WorldEvent& event)
@@ -133,9 +130,19 @@ void Minesweeper::dispatchWorldEvent(const WorldEvent& event)
 	}
 }
 
-void Minesweeper::update(float dt)
+void Minesweeper::update(View& view, float dt)
 {
-	frameRotation_ = sf::degrees(rotationSpeed_ * dt);
+	if (!rendering_ || rotationSpeed_ == 0.f)
+		return;
+
+	Vec2f center = Vec2f(board_.getSize()) / 2.f;
+	view.rotateAround(center, rotationSpeed_ * dt * std::numbers::pi_v<float> / 180.f);
+}
+
+void Minesweeper::render(Canvas canvas, const View& view) const
+{
+	if (!rendering_)
+		return;
 
 	std::optional<std::size_t> pressedCellIndex;
 	if (pressedCell_)
@@ -153,22 +160,7 @@ void Minesweeper::update(float dt)
 		.pressedCellIndex   = pressedCellIndex,
 		.runningMineIndexes = runningBombIndexes_
 	};
-	renderer_.update(board_, state);
-}
-
-void Minesweeper::render(sf::RenderTarget& target) const
-{
-	if (!rendering_)
-		return;
-
-	sf::View view = target.getView();
-	sf::Vector2f center = {board_.getSize().x / 2.f, board_.getSize().y / 2.f};
-	sf::Vector2f offset = center - view.getCenter();
-	view.move(offset - offset.rotatedBy(frameRotation_));
-	view.rotate(frameRotation_);
-	target.setView(view);
-
-	renderer_.render(target);
+	BoardRenderer::render(canvas, view, board_, state);
 }
 
 void Minesweeper::resetParameters()
@@ -182,7 +174,6 @@ void Minesweeper::resetParameters()
 void Minesweeper::setPressedCell(std::optional<Vec2s> coordinates)
 {
 	pressedCell_ = coordinates;
-	renderer_.makeDirty();
 }
 
 void Minesweeper::setRunningBombCount(std::size_t count)
