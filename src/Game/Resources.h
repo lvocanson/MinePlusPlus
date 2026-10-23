@@ -2,6 +2,7 @@
 #include "Core/Audio.h"
 #include "UI/Font.h"
 #include <cells_atlas.h>
+#include <cells_atlas_1px.h>
 #include <click_1.h>
 #include <click_2.h>
 #include <explosion.h>
@@ -28,12 +29,13 @@ namespace Textures
 {
 
 inline const assets::IndexedImage& cellsAtlas = assets::cells_atlas();
+inline const assets::IndexedImage& flatCellsAtlas = assets::cells_atlas_1px();
 
-constexpr int cellSize = 64;
+constexpr int atlasColumns = 4;
 
 /*
  * Skin of a cell, as its row-major index inside the atlas. The order below must
- * match the atlas image: the renderer turns the index back into a pixel offset
+ * match every atlas image: the renderer turns the index back into a pixel offset
  * by dividing by the number of columns.
  */
 enum class Tile : std::uint8_t

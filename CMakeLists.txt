@@ -6,6 +6,7 @@ project ("MinePlusPlus" LANGUAGES C CXX)
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(MPP_PROFILING "Build the runtime profiling tools (src/Profiling)" OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "$<IF:$<CONFIG:Debug>,MultiThreadedDebugDLL,MultiThreaded>")
 
 add_subdirectory(thirdparty) # Third party dependencies
 add_subdirectory(res) # Resources embedding
@@ -22,6 +23,7 @@ set_property(TARGET MinePlusPlus PROPERTY CXX_STANDARD 20)
 
 if (MSVC)
 	target_compile_options(MinePlusPlus PRIVATE /MP /W4 /permissive-)
+	target_link_options(MinePlusPlus PRIVATE "$<$<NOT:$<CONFIG:Debug>>:/NODEFAULTLIB:libucrt.lib;/DEFAULTLIB:ucrt.lib>")
 else()
 	target_compile_options(MinePlusPlus PRIVATE -Wall -Wextra)
 endif()
@@ -29,6 +31,9 @@ endif()
 target_compile_features(MinePlusPlus PRIVATE cxx_std_20)
 set_target_properties(MinePlusPlus PROPERTIES CXX_EXTENSIONS OFF)
 target_link_libraries(MinePlusPlus PRIVATE minifb::minifb miniaudio assets)
+if (WIN32)
+	target_link_libraries(MinePlusPlus PRIVATE imm32)
+endif()
 
 if (MPP_PROFILING)
 	if (NOT WIN32)
