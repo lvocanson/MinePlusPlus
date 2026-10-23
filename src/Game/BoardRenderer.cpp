@@ -63,14 +63,14 @@ void BoardRenderer::render(Canvas canvas, const View& view, const Board& board, 
 {
 	using Resources::Textures::cellsAtlas;
 	constexpr int CELL_SIZE = Resources::Textures::cellSize;
-	const int atlasColumns = cellsAtlas.size.x / CELL_SIZE;
+	const int atlasColumns = cellsAtlas.width / CELL_SIZE;
 
 	Vec2s boardSize = board.getSize();
 	Vec2f boardLimit(boardSize);
 	Transform toWorld = view.toWorld();
 
 	std::size_t cachedIndex = std::numeric_limits<std::size_t>::max();
-	const std::uint32_t* tilePixels = nullptr;
+	const std::uint8_t* tileIndices = nullptr;
 
 	for (int y = 0; y < canvas.size.y; ++y)
 	{
@@ -91,12 +91,12 @@ void BoardRenderer::render(Canvas canvas, const View& view, const Board& board, 
 				cachedIndex = index;
 				int tile = toByte(tileAt(board, state, index));
 				Vec2i origin = Vec2i{tile % atlasColumns, tile / atlasColumns} * CELL_SIZE;
-				tilePixels = cellsAtlas.pixels.data() + std::size_t(origin.y) * std::size_t(cellsAtlas.size.x) + std::size_t(origin.x);
+				tileIndices = cellsAtlas.indices.data() + std::size_t(origin.y) * std::size_t(cellsAtlas.width) + std::size_t(origin.x);
 			}
 
 			int u = std::min(int((world.x - float(cell.x)) * CELL_SIZE), CELL_SIZE - 1);
 			int v = std::min(int((world.y - float(cell.y)) * CELL_SIZE), CELL_SIZE - 1);
-			row[x] = tilePixels[v * cellsAtlas.size.x + u];
+			row[x] = cellsAtlas.palette[tileIndices[v * cellsAtlas.width + u]];
 		}
 	}
 }

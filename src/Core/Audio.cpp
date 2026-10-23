@@ -6,6 +6,10 @@
 #include <mutex>
 #include <thread>
 
+#ifdef MPP_PROFILING
+#include "Profiling/MiniaudioAllocators.h"
+#endif
+
 struct Audio::State
 {
 	static constexpr ma_uint32 OUTPUT_CHANNELS = 2;
@@ -75,8 +79,15 @@ Audio::Audio()
 	config.dataCallback = State::onData;
 	config.pUserData = state_.get();
 
+#ifdef MPP_PROFILING
+	ma_context_config contextConfig = ma_context_config_init();
+	contextConfig.allocationCallbacks = Profiling::makeMiniaudioCallbacks("miniaudio device");
+	if (ma_device_init_ex(nullptr, 0, &contextConfig, &config, &state_->device) != MA_SUCCESS)
+		return;
+#else
 	if (ma_device_init(nullptr, &config, &state_->device) != MA_SUCCESS)
 		return;
+#endif
 
 	state_->deviceReady = true;
 	setVolume(volume_);
@@ -108,6 +119,10 @@ void Audio::play(const Sound& sound)
 		ma_decoder_uninit(&voice.decoder);
 
 	ma_decoder_config config = ma_decoder_config_init(ma_format_f32, State::OUTPUT_CHANNELS, state_->device.sampleRate);
+#ifdef MPP_PROFILING
+	config.allocationCallbacks = Profiling::makeMiniaudioCallbacks(
+		sound.track == Track::Effect ? "miniaudio effect decoder" : "miniaudio music decoder");
+#endif
 	bool loaded = ma_decoder_init_memory(sound.wav.data(), sound.wav.size(), &config, &voice.decoder) == MA_SUCCESS;
 	voice.source = loaded ? sound.wav.data() : nullptr;
 	voice.playing = loaded;

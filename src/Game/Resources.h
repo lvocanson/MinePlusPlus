@@ -1,19 +1,18 @@
 #pragma once
 #include "Core/Audio.h"
-#include "Core/Image.h"
 #include "UI/Font.h"
-#include <cells_atlas_png.h>
+#include <cells_atlas.h>
 #include <click_1.h>
 #include <click_2.h>
 #include <explosion.h>
 #include <victory.h>
-#include <roboto_regular.h>
+#include <roboto_20.h>
 #include <cstdint>
 
 /*
  * Resources are automatically constructed before main().
  * Ensures all required game resources (fonts, textures, etc.) are loaded.
- * If any mandatory resource cannot be found, the application will fail to start.
+ * Fonts and textures are converted at build time, a missing one fails the build.
  */
 namespace Resources
 {
@@ -21,14 +20,14 @@ namespace Resources
 namespace Fonts
 {
 
-inline const Font roboto{assets::roboto_regular(), 20.f};
+inline const Font roboto{assets::roboto_20()};
 
 } // namespace Fonts
 
 namespace Textures
 {
 
-inline const Image cellsAtlas = loadPng(assets::cells_atlas_png());
+inline const assets::IndexedImage& cellsAtlas = assets::cells_atlas();
 
 constexpr int cellSize = 64;
 

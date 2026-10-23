@@ -1,10 +1,7 @@
 #pragma once
 #include "Core/Vec2.h"
-#include <stb_truetype.h>
-#include <array>
+#include <BakedTypes.h>
 #include <cstdint>
-#include <span>
-#include <vector>
 
 struct Glyph
 {
@@ -19,21 +16,14 @@ class Font
 {
 public:
 
-	Font(std::span<const unsigned char> ttf, float pixelHeight);
+	explicit Font(const assets::BakedFont& baked) : baked_(baked) {}
 
-	const Glyph& getGlyph(char32_t codePoint) const;
-	const std::uint8_t* getBitmap(const Glyph& glyph) const { return bitmaps_.data() + glyph.bitmapOffset; }
+	Glyph getGlyph(char32_t codePoint) const;
+	const std::uint8_t* getBitmap(const Glyph& glyph) const { return baked_.bitmaps.data() + glyph.bitmapOffset; }
 	float getKerning(char32_t first, char32_t second) const;
-	float getLineSpacing() const { return lineSpacing_; }
+	float getLineSpacing() const { return baked_.lineSpacing; }
 
 private:
 
-	static constexpr char32_t FIRST = U' ';
-	static constexpr char32_t LAST = U'~';
-
-	stbtt_fontinfo info_;
-	float scale_;
-	float lineSpacing_;
-	std::array<Glyph, LAST - FIRST + 1> glyphs_;
-	std::vector<std::uint8_t> bitmaps_;
+	const assets::BakedFont& baked_;
 };

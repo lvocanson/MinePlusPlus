@@ -27,7 +27,7 @@
             },
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Od /MD",
+                "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Od",
                 "CMAKE_EXE_LINKER_FLAGS_DEBUG": "/DEBUG"
             }
         },
@@ -38,18 +38,22 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
-        }
-    ],
-    "buildPresets": [
-        {
-            "name": "x64-debug",
-            "displayName": "x64 Debug",
-            "configurePreset": "x64-debug"
         },
         {
-            "name": "x64-release",
-            "displayName": "x64 Release",
-            "configurePreset": "x64-release"
+            "name": "x64-debug-profiling",
+            "displayName": "x64 Debug (profiling)",
+            "inherits": "x64-debug",
+            "cacheVariables": {
+                "MPP_PROFILING": "ON"
+            }
+        },
+        {
+            "name": "x64-release-profiling",
+            "displayName": "x64 Release (profiling)",
+            "inherits": "x64-release",
+            "cacheVariables": {
+                "MPP_PROFILING": "ON"
+            }
         }
     ]
 }

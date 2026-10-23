@@ -44,17 +44,36 @@ namespace assets { std::span<const unsigned char> ${name}() noexcept { return { 
 	set(${out_src} "${_src}" PARENT_SCOPE)
 endfunction()
 
+add_executable(asset_baker "${PROJECT_SOURCE_DIR}/tools/AssetBaker/AssetBaker.cpp")
+target_link_libraries(asset_baker PRIVATE tp::stb)
+target_compile_features(asset_baker PRIVATE cxx_std_20)
+set_target_properties(asset_baker PROPERTIES CXX_EXTENSIONS OFF)
+
+function(bake_asset out_src kind name input)
+	set(_dir "${CMAKE_CURRENT_BINARY_DIR}/assets")
+	set(_hdr "${_dir}/${name}.h")
+	set(_src "${_dir}/${name}.cpp")
+	file(MAKE_DIRECTORY "${_dir}")
+	add_custom_command(
+		OUTPUT "${_hdr}" "${_src}"
+		COMMAND asset_baker ${kind} "${input}" "${_hdr}" "${_src}" ${name} ${ARGN}
+		DEPENDS asset_baker "${input}"
+		COMMENT "Baking ${name}"
+		VERBATIM)
+	set(${out_src} "${_hdr}" "${_src}" PARENT_SCOPE)
+endfunction()
+
 add_library(assets STATIC)
 add_library(mpp::assets ALIAS assets)
 
-embed_asset(A_ATLAS cells_atlas_png "${CMAKE_CURRENT_SOURCE_DIR}/cells-atlas.png")
-embed_asset(A_FONT  roboto_regular  "${CMAKE_CURRENT_SOURCE_DIR}/roboto-v48-latin-regular.ttf")
+bake_asset(B_ATLAS atlas cells_atlas "${CMAKE_CURRENT_SOURCE_DIR}/cells-atlas.png")
+bake_asset(B_FONT  font  roboto_20   "${CMAKE_CURRENT_SOURCE_DIR}/roboto-v48-latin-regular.ttf" 20)
 embed_asset(A_CLK1  click_1         "${CMAKE_CURRENT_SOURCE_DIR}/click-1.wav")
 embed_asset(A_CLK2  click_2         "${CMAKE_CURRENT_SOURCE_DIR}/click-2.wav")
 embed_asset(A_EXPL  explosion       "${CMAKE_CURRENT_SOURCE_DIR}/explosion.wav")
 embed_asset(A_VICT  victory         "${CMAKE_CURRENT_SOURCE_DIR}/victory.wav")
 
-target_sources(assets PRIVATE ${A_ATLAS} ${A_FONT} ${A_CLK1} ${A_CLK2} ${A_EXPL} ${A_VICT})
-target_include_directories(assets PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/assets")
+target_sources(assets PRIVATE ${B_ATLAS} ${B_FONT} ${A_CLK1} ${A_CLK2} ${A_EXPL} ${A_VICT})
+target_include_directories(assets PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/assets" "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(assets PUBLIC cxx_std_20)
 set_target_properties(assets PROPERTIES CXX_EXTENSIONS OFF)

@@ -6,6 +6,10 @@
 #include <cstdlib>
 #include <cmath>
 
+#ifdef MPP_PROFILING
+#include "Profiling/Profiler.h"
+#endif
+
 App::App()
 	: clearColor_{0x31, 0x4D, 0x79}
 	, isMouseDraggingCamera_(false)
@@ -40,8 +44,16 @@ int App::run()
 		}
 		window_.display();
 
+#ifdef MPP_PROFILING
+		Profiling::update(window_.getHandle(), dt);
+#endif
+
 		processCommands();
 	}
+
+#ifdef MPP_PROFILING
+	Profiling::shutdown();
+#endif
 
 	audio_.waitUntilIdle(Audio::Track::Effect, std::chrono::seconds(2));
 	return EXIT_SUCCESS;
