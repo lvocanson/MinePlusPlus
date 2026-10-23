@@ -5,6 +5,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+#include <imm.h>
 #endif
 
 namespace
@@ -32,6 +33,10 @@ void Window::open(bool fullscreen)
 {
 	if (window_)
 		return;
+
+#ifdef _WIN32
+	[[maybe_unused]] static const bool imeDisabled = ImmDisableIME(DWORD(-1));
+#endif
 
 	Vec2u size = getDefaultWindowSize();
 	unsigned flags = fullscreen

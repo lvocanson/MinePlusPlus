@@ -57,13 +57,15 @@ Tile tileAt(const Board& board, const BoardRenderer::State& state, std::size_t i
 
 } // namespace
 
-// TODO: nearest sampling without mipmaps, zoomed out boards alias
+// TODO: nearest sampling without mipmaps, detailed cells alias when zoomed out down to minDetailedZoom
 // TODO: every pixel is tested against the board, clipping each row to the board would skip the empty space
 void BoardRenderer::render(Canvas canvas, const View& view, const Board& board, const State& state)
 {
+	using Resources::Textures::atlasColumns;
 	using Resources::Textures::cellsAtlas;
-	constexpr int CELL_SIZE = Resources::Textures::cellSize;
-	const int atlasColumns = cellsAtlas.width / CELL_SIZE;
+	const float minDetailedZoom = float(cellsAtlas.width / atlasColumns) / 4.f;
+	const assets::IndexedImage& atlas = view.zoom < minDetailedZoom ? Resources::Textures::flatCellsAtlas : cellsAtlas;
+	const int cellSize = atlas.width / atlasColumns;
 
 	Vec2s boardSize = board.getSize();
 	Vec2f boardLimit(boardSize);
@@ -90,13 +92,13 @@ void BoardRenderer::render(Canvas canvas, const View& view, const Board& board, 
 			{
 				cachedIndex = index;
 				int tile = toByte(tileAt(board, state, index));
-				Vec2i origin = Vec2i{tile % atlasColumns, tile / atlasColumns} * CELL_SIZE;
-				tileIndices = cellsAtlas.indices.data() + std::size_t(origin.y) * std::size_t(cellsAtlas.width) + std::size_t(origin.x);
+				Vec2i origin = Vec2i{tile % atlasColumns, tile / atlasColumns} * cellSize;
+				tileIndices = atlas.indices.data() + std::size_t(origin.y) * std::size_t(atlas.width) + std::size_t(origin.x);
 			}
 
-			int u = std::min(int((world.x - float(cell.x)) * CELL_SIZE), CELL_SIZE - 1);
-			int v = std::min(int((world.y - float(cell.y)) * CELL_SIZE), CELL_SIZE - 1);
-			row[x] = cellsAtlas.palette[tileIndices[v * cellsAtlas.width + u]];
+			int u = std::min(int((world.x - float(cell.x)) * float(cellSize)), cellSize - 1);
+			int v = std::min(int((world.y - float(cell.y)) * float(cellSize)), cellSize - 1);
+			row[x] = atlas.palette[tileIndices[v * atlas.width + u]];
 		}
 	}
 }
