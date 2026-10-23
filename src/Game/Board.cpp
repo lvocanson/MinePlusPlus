@@ -1,4 +1,5 @@
 #include "Board.h"
+#include "Profiling/Profile.h"
 #include "Utils/MyRandom.h"
 #include "Utils/Overloaded.h"
 #include <algorithm>
@@ -109,6 +110,7 @@ void Board::resize(const Vec2s& size)
 {
 	assert(isSizeValid(size));
 	size_ = size;
+	std::vector<Cell>().swap(cells_);
 	clear();
 }
 
@@ -164,6 +166,7 @@ void Board::clear()
 	assert(isSizeValid(size_));
 	flagCount_ = openCount_ = 0;
 	cells_.assign(size_.x * size_.y, {});
+	MPP_PROFILE_MEMORY("Board cells", cells_.capacity() * sizeof(Cell));
 }
 
 void Board::makeSafe(std::size_t index)
@@ -272,6 +275,14 @@ struct Board::SeedStack
 				[&](Heap& h) { h.vec.push_back(index); }
 			}, store);
 	}
+
+#ifdef MPP_PROFILING
+	std::size_t heapBytes() const
+	{
+		const Heap* heap = std::get_if<Heap>(&store);
+		return heap ? heap->vec.capacity() * sizeof(std::size_t) : 0;
+	}
+#endif
 };
 
 bool Board::open(std::size_t index)
@@ -322,6 +333,7 @@ bool Board::open(std::size_t index)
 		fillFrom(stack.pop(), stack, mineOpened);
 	}
 
+	MPP_PROFILE_MEMORY_PEAK("Seed stack", stack.heapBytes());
 	return mineOpened;
 }
 

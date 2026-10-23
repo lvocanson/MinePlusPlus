@@ -7,9 +7,8 @@ set(MINIFB_USE_OPENGL_API     OFF)
 set(MINIFB_BUILD_EXAMPLES     OFF)
 set(MINIFB_BUILD_VERSION_INFO OFF)
 FetchContent_Declare(minifb
-	GIT_REPOSITORY https://github.com/emoon/minifb.git
-	GIT_TAG 2ca56860a2be5f62414ebe6bfaf385716d75327f
-	GIT_SHALLOW ON
+	URL      https://github.com/emoon/minifb/archive/2ca56860a2be5f62414ebe6bfaf385716d75327f.tar.gz
+	URL_HASH SHA256=4268a772f7590c113e9cdf6710beff9b465723784c0bfe142be2f92b59419630
 	EXCLUDE_FROM_ALL
 	SYSTEM
 )
@@ -19,9 +18,8 @@ set(MINIAUDIO_BUILD_EXAMPLES OFF)
 set(MINIAUDIO_BUILD_TESTS    OFF)
 set(MINIAUDIO_BUILD_TOOLS    OFF)
 FetchContent_Declare(miniaudio
-	GIT_REPOSITORY https://github.com/mackron/miniaudio.git
-	GIT_TAG 9634bedb5b5a2ca38c1ee7108a9358a4e233f14d
-	GIT_SHALLOW ON
+	URL      https://github.com/mackron/miniaudio/archive/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d.tar.gz
+	URL_HASH SHA256=1a3a79b80fc6f0b0cc155e28b954a598e0ddfa2db64e2afa8466be88c476fa55
 	EXCLUDE_FROM_ALL
 	SYSTEM
 )
@@ -41,9 +39,8 @@ elseif (UNIX AND NOT APPLE)
 endif()
 
 FetchContent_Declare(stb
-	GIT_REPOSITORY https://github.com/nothings/stb.git
-	GIT_TAG        2c980bb59875b0d32144a71867fbdebb2f77cd20
-	GIT_SHALLOW    ON
+	URL      https://github.com/nothings/stb/archive/2c980bb59875b0d32144a71867fbdebb2f77cd20.tar.gz
+	URL_HASH SHA256=9a955b1b49a4410088a2e0ee2a9c057c3c907d0c1d75454144cb980aca0ba515
 	EXCLUDE_FROM_ALL
 	SYSTEM
 )
