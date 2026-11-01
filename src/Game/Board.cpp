@@ -98,12 +98,7 @@ Board::Board()
 
 bool Board::isSizeValid(const Vec2s& size)
 {
-	if (size.x && size.y)
-		// check overflow
-		return size.x < std::numeric_limits<std::size_t>::max() / size.y
-		       // and respect max_size
-		       && size.x * size.y < std::vector<Cell>().max_size();
-	return false;
+	return size.x && size.y && size.x <= MAX_CELLS / size.y;
 }
 
 void Board::resize(const Vec2s& size)
@@ -184,7 +179,10 @@ void Board::makeSafe(std::size_t index)
 	for (std::size_t i = 0; i < cells_.size(); ++i)
 	{
 		if (!cells_[i].mined && --n == 0)
+		{
 			mineCell(i);
+			break;
+		}
 	}
 
 	clearCell(index);

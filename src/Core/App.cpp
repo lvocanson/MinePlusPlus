@@ -2,6 +2,7 @@
 #include "Game/Resources.h"
 #include "UI/UITarget.h"
 #include "Utils/Overloaded.h"
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <cmath>
@@ -20,7 +21,7 @@ App::App()
 	if (window_.isOpen())
 		setupEvents();
 
-	view_.viewport = Vec2f(window_.getSize());
+	view_.viewport = Vec2d(window_.getSize());
 	view_.reset();
 	std::visit([&](auto& ui) { ui(UIEvent::Resized{*this, window_.getSize()}); }, ui_);
 }
@@ -65,12 +66,13 @@ void App::resetView()
 	view_.reset();
 }
 
-void App::setViewTarget(Rectf target)
+void App::setViewTarget(Rectd target)
 {
-	view_.fit(target);
+	if (!view_.fit(target) && view_.zoom == View::MIN_ZOOM)
+		view_.setTopLeft(target.position);
 }
 
-void App::resetViewRotation(Vec2f pivot)
+void App::resetViewRotation(Vec2d pivot)
 {
 	view_.rotateAround(pivot, -view_.rotation);
 }
@@ -82,8 +84,8 @@ void App::setupEvents()
 		[this](mfb_window*, int width, int height)
 		{
 			// Keep the whole previous view visible after resizing by zooming out if needed.
-			Vec2f visible = view_.getVisibleSize();
-			view_.viewport = Vec2f(Vec2i{width, height});
+			Vec2d visible = view_.getVisibleSize();
+			view_.viewport = Vec2d(Vec2i{width, height});
 			view_.fit({view_.center - visible / 2.f, visible});
 			std::visit([&](auto& ui) { ui(UIEvent::Resized{*this, Vec2i{width, height}}); }, ui_);
 		},
@@ -104,7 +106,7 @@ void App::setupEvents()
 			auto result = std::visit([&](auto& ui) { return event.visit(ui); }, ui_);
 			if (result == UIEvent::Ignored)
 			{
-				Vec2f position = view_.toWorld().apply(Vec2f(mousePos_));
+				Vec2d position = view_.toWorld().apply(Vec2d(mousePos_));
 				game_.dispatchWorldEvent(
 					pressed
 					? WorldEvent{WorldEvent::Pressed{*this, btn, position}}
@@ -122,10 +124,10 @@ void App::setupEvents()
 		[this](mfb_window*, mfb_key_mod, float dx, float dy)
 		{
 			float factor = std::pow(2.f, (dx + dy) * -0.1f * preferences_.zoomSensitivity);
-			Vec2f mouse(mousePos_);
-			Vec2f before = view_.toWorld().apply(mouse);
-			view_.zoom /= factor;
-			Vec2f after = view_.toWorld().apply(mouse);
+			Vec2d mouse(mousePos_);
+			Vec2d before = view_.toWorld().apply(mouse);
+			view_.zoom = std::clamp(view_.zoom / factor, View::MIN_ZOOM, View::MAX_ZOOM);
+			Vec2d after = view_.toWorld().apply(mouse);
 			view_.center += before - after;
 		},
 		hwnd);
@@ -137,7 +139,7 @@ void App::setupEvents()
 			if (isMouseDraggingCamera_)
 			{
 				Transform toWorld = view_.toWorld();
-				Vec2f drag = toWorld.apply(Vec2f(newMousePos)) - toWorld.apply(Vec2f(mousePos_));
+				Vec2d drag = toWorld.apply(Vec2d(newMousePos)) - toWorld.apply(Vec2d(mousePos_));
 				view_.center -= drag * preferences_.panSensitivity;
 			}
 			mousePos_ = newMousePos;

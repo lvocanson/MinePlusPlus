@@ -58,13 +58,13 @@ struct WorldEvent
 	struct Pressed : AppEvent
 	{
 		mfb_mouse_button button;
-		Vec2f position;
+		Vec2d position;
 	};
 
 	struct Released : AppEvent
 	{
 		mfb_mouse_button button;
-		Vec2f position;
+		Vec2d position;
 	};
 
 	void visit(auto& visitor) const

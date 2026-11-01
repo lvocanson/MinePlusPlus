@@ -22,3 +22,4 @@ struct Rect
 
 using Recti = Rect<int>;
 using Rectf = Rect<float>;
+using Rectd = Rect<double>;

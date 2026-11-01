@@ -6,7 +6,7 @@ namespace
 {
 
 // World coordinates left of or above the board are not representable as a Vec2s.
-std::optional<Vec2s> toCellCoordinates(Vec2f position)
+std::optional<Vec2s> toCellCoordinates(Vec2d position)
 {
 	if (position.x < 0.f || position.y < 0.f)
 		return std::nullopt;

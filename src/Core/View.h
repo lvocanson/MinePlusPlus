@@ -4,24 +4,28 @@
 
 struct Transform
 {
-	float a, b, c, d, e, f;
+	double a, b, c, d, e, f;
 
-	Vec2f apply(Vec2f p) const;
+	Vec2d apply(Vec2d p) const;
 };
 
 struct View
 {
-	Vec2f center{};
-	float zoom = 1.f;
-	float rotation{};
-	Vec2f viewport{};
+	static constexpr double MIN_ZOOM = 1.0;
+	static constexpr double MAX_ZOOM = 256.0;
+
+	Vec2d center{};
+	double zoom = 1.0;
+	double rotation{};
+	Vec2d viewport{};
 
 	Transform toScreen() const;
 	Transform toWorld() const;
 
-	Vec2f getVisibleSize() const { return viewport / zoom; }
+	Vec2d getVisibleSize() const { return viewport / zoom; }
 
 	void reset();
-	void fit(Rectf target);
-	void rotateAround(Vec2f pivot, float angle);
+	bool fit(Rectd target);
+	void setTopLeft(Vec2d position);
+	void rotateAround(Vec2d pivot, double angle);
 };

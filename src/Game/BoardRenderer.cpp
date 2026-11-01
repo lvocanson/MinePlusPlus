@@ -4,12 +4,24 @@
 #include "Game/Resources.h"
 #include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <cstdint>
 #include <limits>
 
 namespace
 {
 
 using Resources::Textures::Tile;
+
+constexpr int FRACTION_BITS = 28;
+constexpr std::uint64_t FRACTION_MASK = (std::uint64_t(1) << FRACTION_BITS) - 1;
+constexpr double FIXED_ONE = double(std::int64_t(1) << FRACTION_BITS);
+constexpr double MAX_ROW_START = double(std::int64_t(1) << 34);
+
+std::int64_t toFixed(double value)
+{
+	return std::llround(value * FIXED_ONE);
+}
 
 constexpr std::uint8_t toByte(Tile tile)
 {
@@ -68,8 +80,11 @@ void BoardRenderer::render(Canvas canvas, const View& view, const Board& board, 
 	const int cellSize = atlas.width / atlasColumns;
 
 	Vec2s boardSize = board.getSize();
-	Vec2f boardLimit(boardSize);
+	std::uint64_t limitX = std::uint64_t(boardSize.x) << FRACTION_BITS;
+	std::uint64_t limitY = std::uint64_t(boardSize.y) << FRACTION_BITS;
 	Transform toWorld = view.toWorld();
+	std::int64_t stepX = toFixed(toWorld.a);
+	std::int64_t stepY = toFixed(toWorld.d);
 
 	std::size_t cachedIndex = std::numeric_limits<std::size_t>::max();
 	const std::uint8_t* tileIndices = nullptr;
@@ -77,17 +92,19 @@ void BoardRenderer::render(Canvas canvas, const View& view, const Board& board, 
 	for (int y = 0; y < canvas.size.y; ++y)
 	{
 		std::uint32_t* row = canvas.row(y);
-		Vec2f rowStart = toWorld.apply({0.f, float(y) + 0.5f});
+		Vec2d rowStart = toWorld.apply({0.5, double(y) + 0.5});
+		if (!(std::abs(rowStart.x) < MAX_ROW_START && std::abs(rowStart.y) < MAX_ROW_START))
+			continue;
 
-		for (int x = 0; x < canvas.size.x; ++x)
+		std::int64_t worldX = toFixed(rowStart.x);
+		std::int64_t worldY = toFixed(rowStart.y);
+		for (int x = 0; x < canvas.size.x; ++x, worldX += stepX, worldY += stepY)
 		{
-			float fx = float(x) + 0.5f;
-			Vec2f world{rowStart.x + toWorld.a * fx, rowStart.y + toWorld.d * fx};
-			if (!(world.x >= 0.f && world.y >= 0.f && world.x < boardLimit.x && world.y < boardLimit.y))
+			auto fixedX = std::uint64_t(worldX), fixedY = std::uint64_t(worldY);
+			if (fixedX >= limitX || fixedY >= limitY)
 				continue;
 
-			Vec2s cell(world);
-			std::size_t index = cell.x + cell.y * boardSize.x;
+			std::size_t index = std::size_t(fixedX >> FRACTION_BITS) + std::size_t(fixedY >> FRACTION_BITS) * boardSize.x;
 			if (index != cachedIndex)
 			{
 				cachedIndex = index;
@@ -96,8 +113,8 @@ void BoardRenderer::render(Canvas canvas, const View& view, const Board& board, 
 				tileIndices = atlas.indices.data() + std::size_t(origin.y) * std::size_t(atlas.width) + std::size_t(origin.x);
 			}
 
-			int u = std::min(int((world.x - float(cell.x)) * float(cellSize)), cellSize - 1);
-			int v = std::min(int((world.y - float(cell.y)) * float(cellSize)), cellSize - 1);
+			int u = int(((fixedX & FRACTION_MASK) * std::uint64_t(cellSize)) >> FRACTION_BITS);
+			int v = int(((fixedY & FRACTION_MASK) * std::uint64_t(cellSize)) >> FRACTION_BITS);
 			row[x] = atlas.palette[tileIndices[v * atlas.width + u]];
 		}
 	}

@@ -40,8 +40,8 @@ public:
 public:
 
 	void resetView();
-	void setViewTarget(Rectf target);
-	void resetViewRotation(Vec2f pivot);
+	void setViewTarget(Rectd target);
+	void resetViewRotation(Vec2d pivot);
 
 private:
 

@@ -182,8 +182,9 @@ void CustomMenu::updateDiagnostic()
 	Vec2s newSize = {widthField_.value, heightField_.value};
 	std::size_t mineCount = minesField_.value;
 
-	std::size_t cellCount = newSize.x * newSize.y;
-	std::size_t maxCells = std::vector<Cell>().max_size();
+	bool computable = newSize.x && newSize.y && newSize.x <= std::numeric_limits<std::size_t>::max() / newSize.y;
+	std::size_t cellCount = computable ? newSize.x * newSize.y : 0;
+	std::size_t maxCells = Board::MAX_CELLS;
 
 	diagnosticStr_.clear();
 	auto out = std::back_inserter(diagnosticStr_);
@@ -194,7 +195,7 @@ void CustomMenu::updateDiagnostic()
 		{
 			std::format_to(out, "Invalid size: width or height is 0.\n");
 		}
-		else if (newSize.x > std::numeric_limits<std::size_t>::max() / newSize.y)
+		else if (!computable)
 		{
 			std::format_to(out, "Invalid size: the number of cells is too big and cannot be computed.\n");
 		}

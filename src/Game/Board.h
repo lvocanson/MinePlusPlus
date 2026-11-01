@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <vector>
 
@@ -47,6 +48,8 @@ public:
 	Board& operator=(Board&&) noexcept = default;
 
 public: // setup methods
+
+	static constexpr std::size_t MAX_CELLS = std::numeric_limits<std::uint32_t>::max();
 
 	static bool isSizeValid(const Vec2s& size);
 	void resize(const Vec2s& size);

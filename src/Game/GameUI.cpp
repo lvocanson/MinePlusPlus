@@ -90,7 +90,7 @@ UIEvent::Result GameUI::operator()(const UIEvent::Released& event)
 	if (tracker_.isClicked(restartBtn_, event.position))
 	{
 		bestTime_ = getBestTime();
-		event.app.resetViewRotation(Vec2f(game_.getBoard().getSize()) / 2.f);
+		event.app.resetViewRotation(Vec2d(game_.getBoard().getSize()) / 2.0);
 		event.app.getGame().restart();
 	}
 	else if (tracker_.isClicked(mainMenuBtn_, event.position))
@@ -189,7 +189,7 @@ std::optional<std::chrono::milliseconds> GameUI::getBestTime() const
 void GameUI::centerBoardOnView(App& app) const
 {
 	auto& board = game_.getBoard();
-	Vec2f size(board.getSize());
-	Vec2f margin{1.f, 1.f};
+	Vec2d size(board.getSize());
+	Vec2d margin{1.0, 1.0};
 	app.setViewTarget({-margin, size + margin * 2.f});
 }

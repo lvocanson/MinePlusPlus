@@ -28,6 +28,7 @@ struct Vec2
 
 using Vec2i = Vec2<int>;
 using Vec2f = Vec2<float>;
+using Vec2d = Vec2<double>;
 using Vec2u = Vec2<unsigned>;
 using Vec2s = Vec2<std::size_t>;
 using Vec2sDelta = Vec2<std::ptrdiff_t>;

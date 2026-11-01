@@ -135,7 +135,7 @@ void Minesweeper::update(View& view, float dt)
 	if (!rendering_ || rotationSpeed_ == 0.f)
 		return;
 
-	Vec2f center = Vec2f(board_.getSize()) / 2.f;
+	Vec2d center = Vec2d(board_.getSize()) / 2.0;
 	view.rotateAround(center, rotationSpeed_ * dt * std::numbers::pi_v<float> / 180.f);
 }
 
