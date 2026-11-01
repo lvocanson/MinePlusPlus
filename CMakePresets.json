@@ -40,19 +40,21 @@
             }
         },
         {
-            "name": "x64-debug-profiling",
-            "displayName": "x64 Debug (profiling)",
+            "name": "x64-debug-full",
+            "displayName": "x64 Debug (all options)",
             "inherits": "x64-debug",
             "cacheVariables": {
-                "MPP_PROFILING": "ON"
+                "MPP_PROFILING": "ON",
+                "MPP_CHEATS": "ON"
             }
         },
         {
-            "name": "x64-release-profiling",
-            "displayName": "x64 Release (profiling)",
+            "name": "x64-release-full",
+            "displayName": "x64 Release (all options)",
             "inherits": "x64-release",
             "cacheVariables": {
-                "MPP_PROFILING": "ON"
+                "MPP_PROFILING": "ON",
+                "MPP_CHEATS": "ON"
             }
         }
     ]

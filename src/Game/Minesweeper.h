@@ -27,6 +27,7 @@ public:
 	bool isGameOver() const { return state_ == Lost || state_ == Won; }
 	bool isLost() const { return state_ == Lost; }
 	bool isWon() const { return state_ == Won; }
+	bool isCheated() const { return cheated_; }
 
 	void setEasy();
 	void setMedium();
@@ -38,6 +39,11 @@ public:
 	void restart();
 	void open(const Vec2s& coordinates);
 	void flag(const Vec2s& coordinates);
+
+#ifdef MPP_CHEATS
+	void cheatRevealNumbers();
+	void cheatFlagMines();
+#endif
 
 public:
 
@@ -70,6 +76,7 @@ private:
 	std::optional<Vec2s> pressedCell_;
 	GameControls controls_;
 	bool rendering_;
+	bool cheated_;
 
 	enum : char
 	{

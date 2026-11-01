@@ -71,7 +71,7 @@ void GameControls::operator()(const WorldEvent::Released& event)
 					? Resources::Sounds::explosion
 					: Resources::Sounds::victory);
 
-				if (auto key = Save::makeScoreKey(game); key && game.isWon())
+				if (auto key = Save::makeScoreKey(game); key && game.isWon() && !game.isCheated())
 					Save::submitTime(*key, std::chrono::duration_cast<std::chrono::milliseconds>(game.getPlayingTime()));
 			}
 			else

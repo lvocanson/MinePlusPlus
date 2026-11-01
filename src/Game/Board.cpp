@@ -345,6 +345,28 @@ void Board::flag(std::size_t index)
 	}
 }
 
+#ifdef MPP_CHEATS
+void Board::revealNumbers()
+{
+	for (auto& cell : cells_)
+		if (!cell.opened && !cell.mined && cell.adjacentMines)
+			openCell(cell);
+}
+
+void Board::flagMinesOnly()
+{
+	flagCount_ = 0;
+	for (auto& cell : cells_)
+	{
+		if (!cell.opened)
+		{
+			cell.flagged = cell.mined;
+			flagCount_ += cell.flagged;
+		}
+	}
+}
+#endif
+
 void Board::mineCell(std::size_t index)
 {
 	assert(isIndexValid(index));

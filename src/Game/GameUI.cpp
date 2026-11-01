@@ -158,7 +158,11 @@ void GameUI::formatEndMessage() const
 	{
 		gameText_.color = Colors::Green;
 		std::format_to(out, "You win!\n");
-		if (!bestTime_ || time < *bestTime_)
+		if (game_.isCheated())
+		{
+			std::format_to(out, "Cheats used, time not saved");
+		}
+		else if (!bestTime_ || time < *bestTime_)
 		{
 			std::format_to(out, "New best time!");
 		}
@@ -179,7 +183,7 @@ void GameUI::formatEndMessage() const
 
 std::optional<std::chrono::milliseconds> GameUI::getBestTime() const
 {
-	if (!game_.isWon())
+	if (!game_.isWon() || game_.isCheated())
 		return bestTime_;
 
 	auto time = std::chrono::duration_cast<std::chrono::milliseconds>(game_.getPlayingTime());

@@ -86,6 +86,11 @@ public: // playing methods
 
 	bool isWon() const { return openCount_ == cells_.size() - mineCount_; }
 
+#ifdef MPP_CHEATS
+	void revealNumbers();
+	void flagMinesOnly();
+#endif
+
 	const Cell& getCellAt(std::size_t index) const { return cells_[index]; }
 	const std::vector<Cell>& getCells() const { return cells_; }
 	NeighbourRange getNeighboursOf(const Vec2s& coordinates) const { return {*this, coordinates}; }

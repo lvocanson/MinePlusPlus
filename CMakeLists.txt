@@ -5,6 +5,7 @@ project ("MinePlusPlus" LANGUAGES C CXX)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(MPP_PROFILING "Build the runtime profiling tools (src/Profiling)" OFF)
+option(MPP_CHEATS "Build the cheat keys (F2, F3)" OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "$<IF:$<CONFIG:Debug>,MultiThreadedDebugDLL,MultiThreaded>")
 
@@ -46,6 +47,10 @@ if (MPP_PROFILING)
 	target_compile_definitions(MinePlusPlus PRIVATE MPP_PROFILING)
 	target_link_libraries(MinePlusPlus PRIVATE dbghelp delayimp)
 	target_link_options(MinePlusPlus PRIVATE /DELAYLOAD:dbghelp.dll)
+endif()
+
+if (MPP_CHEATS)
+	target_compile_definitions(MinePlusPlus PRIVATE MPP_CHEATS)
 endif()
 
 if (UNIX AND NOT APPLE)

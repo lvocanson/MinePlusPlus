@@ -146,6 +146,28 @@ void App::setupEvents()
 		},
 		hwnd);
 
+#ifdef MPP_CHEATS
+	mfb_set_keyboard_callback(
+		[this](mfb_window*, mfb_key key, mfb_key_mod, bool pressed)
+		{
+			if (!pressed)
+				return;
+
+			if (key == MFB_KB_KEY_F2)
+			{
+				bool wasWon = game_.isWon();
+				game_.cheatRevealNumbers();
+				if (!wasWon && game_.isWon())
+					audio_.play(Resources::Sounds::victory);
+			}
+			else if (key == MFB_KB_KEY_F3)
+			{
+				game_.cheatFlagMines();
+			}
+		},
+		hwnd);
+#endif
+
 	mfb_set_char_input_callback(
 		[this](mfb_window*, unsigned int code)
 		{

@@ -1,4 +1,5 @@
 ﻿#include "Window.h"
+#include "Profiling/Profile.h"
 #include <utility>
 
 #ifdef _WIN32
@@ -98,6 +99,7 @@ Canvas Window::beginFrame(Color clearColor)
 		bufferSize_ = size;
 		buffer_.resize(std::size_t(size.x) * std::size_t(size.y));
 		buffer_.shrink_to_fit();
+		MPP_PROFILE_MEMORY("Framebuffer", buffer_.capacity() * sizeof(std::uint32_t));
 	}
 
 	Canvas canvas{buffer_.data(), bufferSize_};

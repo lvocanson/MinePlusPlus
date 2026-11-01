@@ -6,6 +6,7 @@
 
 Minesweeper::Minesweeper()
 	: rendering_(false)
+	, cheated_(false)
 	, state_{}
 	, gameMode_{}
 	, rotationSpeed_{}
@@ -63,6 +64,7 @@ void Minesweeper::restart()
 	// Indexes of the previous game no longer point to mines
 	runningBombIndexes_.clear();
 	clock_.reset();
+	cheated_ = false;
 	state_ = Ready;
 }
 
@@ -121,6 +123,31 @@ void Minesweeper::flag(const Vec2s& coordinates)
 	std::size_t index = board_.toIndex(coordinates);
 	board_.flag(index);
 }
+
+#ifdef MPP_CHEATS
+void Minesweeper::cheatRevealNumbers()
+{
+	if (!rendering_ || state_ != Playing)
+		return;
+
+	cheated_ = true;
+	board_.revealNumbers();
+	if (board_.isWon())
+	{
+		state_ = Won;
+		clock_.stop();
+	}
+}
+
+void Minesweeper::cheatFlagMines()
+{
+	if (!rendering_ || state_ != Playing)
+		return;
+
+	cheated_ = true;
+	board_.flagMinesOnly();
+}
+#endif
 
 void Minesweeper::dispatchWorldEvent(const WorldEvent& event)
 {
