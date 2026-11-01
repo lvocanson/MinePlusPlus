@@ -11,14 +11,14 @@ namespace
 constexpr Vec2i BUTTON_SIZE = {150, 28};
 constexpr Vec2i ELEMENTS_GAP = {200, 60};
 
-constexpr std::string_view GAME_MODE_TITLE[PlayMenu::GameMode::Count] =
+constexpr std::string_view GAME_MODE_TITLE[Minesweeper::Count] =
 {
 	"Default",
 	"Spinning",
 	"Running Bomb"
 };
 
-constexpr std::string_view GAME_MODE_DESC[PlayMenu::GameMode::Count] =
+constexpr std::string_view GAME_MODE_DESC[Minesweeper::Count] =
 {
 	"Default Minesweeper:\n"
 	"Use the hints to discover all safe tiles!",
@@ -35,8 +35,9 @@ constexpr std::string_view GAME_MODE_DESC[PlayMenu::GameMode::Count] =
 
 }
 
-PlayMenu::PlayMenu(Minesweeper& game)
-	: gameMode_{}
+PlayMenu::PlayMenu(Preferences& preferences)
+	: preferences_(preferences)
+	, gameMode_(preferences.gameMode)
 	, gameModeText_{.origin = Text::Middle, .string = "Game Mode:"}
 	, gameModeDescription_{.origin = Text::Top, .string = GAME_MODE_DESC[gameMode_]}
 	, gameModeBtn_{.rect = {{}, BUTTON_SIZE}, .text = GAME_MODE_TITLE[gameMode_]}
@@ -45,6 +46,15 @@ PlayMenu::PlayMenu(Minesweeper& game)
 	, expertBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Expert"}
 	, backBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Back"}
 	, customBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Custom"} {}
+
+PlayMenu::~PlayMenu()
+{
+	if (preferences_.gameMode == gameMode_)
+		return;
+
+	preferences_.gameMode = gameMode_;
+	Save::savePreferences(preferences_);
+}
 
 UIEvent::Result PlayMenu::operator()(const UIEvent::Resized& event)
 {
@@ -82,7 +92,7 @@ UIEvent::Result PlayMenu::operator()(const UIEvent::Released& event)
 {
 	if (tracker_.isClicked(gameModeBtn_, event.position))
 	{
-		gameMode_ = GameMode((gameMode_ + 1) % Count);
+		gameMode_ = GameMode((gameMode_ + 1) % Minesweeper::Count);
 		gameModeDescription_.string = GAME_MODE_DESC[gameMode_];
 		gameModeBtn_.text = GAME_MODE_TITLE[gameMode_];
 	}
@@ -104,7 +114,8 @@ UIEvent::Result PlayMenu::operator()(const UIEvent::Released& event)
 	}
 	else if (tracker_.isClicked(customBtn_, event.position))
 	{
-		event.app.submitCommand<SwapUI>([&game = event.app.getGame()](AppUI& ui) { ui.emplace<CustomMenu>(game); });
+		event.app.submitCommand<SwapUI>(
+			[&app = event.app](AppUI& ui) { ui.emplace<CustomMenu>(app); });
 	}
 	else
 		return UIEvent::Ignored;
@@ -138,21 +149,8 @@ void PlayMenu::play(App& app, Difficulty d) const
 		break;
 	}
 
+	game.setGameMode(gameMode_);
 	game.restart();
-
-	switch (gameMode_)
-	{
-	case PlayMenu::Spinning:
-	{
-		game.setRotationSpeed(1.f);
-	}
-	break;
-	case PlayMenu::RunningBomb:
-	{
-		game.setRunningBombCount(d + 1ull);
-	}
-	break;
-	}
 
 	app.submitCommand<SwapUI>([&](AppUI& ui) { ui.emplace<GameUI>(app); });
 	app.submitCommand<ChangeClearColor>(Color{0x79, 0x31, 0x32, 0x00});

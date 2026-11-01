@@ -12,7 +12,7 @@ public:
 	UIEvent::Result operator()(const UIEvent::Resized& event);
 	UIEvent::Result operator()(const UIEvent::Pressed& event);
 	UIEvent::Result operator()(const UIEvent::Released& event);
-	UIEvent::Result operator()(const UIEvent::Typed& event) { return UIEvent::Ignored; }
+	UIEvent::Result operator()(const UIEvent::Typed&) { return UIEvent::Ignored; }
 	void render(class UITarget& target) const;
 
 private:

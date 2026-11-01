@@ -4,6 +4,7 @@
 #include "GameControls.h"
 #include "Core/Canvas.h"
 #include "Utils/Stopwatch.h"
+#include <cstdint>
 
 struct View;
 
@@ -11,12 +12,21 @@ class Minesweeper
 {
 public:
 
+	enum GameMode : std::uint8_t
+	{
+		Default,
+		Spinning,
+		RunningBomb,
+		Count
+	};
+
 	Minesweeper();
 
 	const Board& getBoard() const { return board_; }
 	Stopwatch::Clock::duration getPlayingTime() const { return clock_.getElapsedTime(); }
 	bool isGameOver() const { return state_ == Lost || state_ == Won; }
 	bool isLost() const { return state_ == Lost; }
+	bool isWon() const { return state_ == Won; }
 
 	void setEasy();
 	void setMedium();
@@ -43,10 +53,11 @@ public:
 	std::optional<Vec2s> getPressedCell() const { return pressedCell_; }
 	void setRendering(bool active) { rendering_ = active; }
 
+	void setGameMode(GameMode mode);
+	GameMode getGameMode() const { return gameMode_; }
+
 	void setRotationSpeed(float speed) { rotationSpeed_ = speed; }
 	float getRotationSpeed() const { return rotationSpeed_; }
-	void setRunningBombCount(std::size_t count);
-	std::size_t getRunningBombCount() const { return runningBombCount_; }
 
 private:
 
@@ -70,10 +81,9 @@ private:
 
 	} state_;
 
+	GameMode gameMode_;
 	float rotationSpeed_;
 
-	// Requested count (game mode parameter), and the indexes of the
-	// running bombs, only filled while playing.
-	std::size_t runningBombCount_;
+	// Indexes of the running bombs, only filled while playing.
 	std::vector<std::size_t> runningBombIndexes_;
 };

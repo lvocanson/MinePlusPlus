@@ -16,4 +16,6 @@ struct Text
 	Origin origin = TopLeft;
 	std::string_view string; // utf-8
 	Color color = Colors::White;
+	bool bold = false;
+	bool centerLines = false;
 };

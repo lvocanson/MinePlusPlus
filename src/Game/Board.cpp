@@ -151,7 +151,7 @@ void Board::placeMines()
 {
 	assert(isSizeValid(size_));
 
-	// Fisher-Yates shuffle variant
+	// Floyd's sampling algorithm (Bentley & Floyd, 1987)
 	for (std::size_t i = cells_.size() - mineCount_; i < cells_.size(); ++i)
 	{
 		std::uniform_int_distribution<std::size_t> dist(0, i);

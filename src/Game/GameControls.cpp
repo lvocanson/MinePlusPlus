@@ -70,6 +70,9 @@ void GameControls::operator()(const WorldEvent::Released& event)
 					game.isLost()
 					? Resources::Sounds::explosion
 					: Resources::Sounds::victory);
+
+				if (auto key = Save::makeScoreKey(game); key && game.isWon())
+					Save::submitTime(*key, std::chrono::duration_cast<std::chrono::milliseconds>(game.getPlayingTime()));
 			}
 			else
 			{

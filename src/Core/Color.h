@@ -18,5 +18,7 @@ namespace Colors
 
 inline constexpr Color White{0xFF, 0xFF, 0xFF};
 inline constexpr Color Black{0x00, 0x00, 0x00};
+inline constexpr Color Red{0xFF, 0x00, 0x00};
+inline constexpr Color Green{0x00, 0xFF, 0x00};
 
 } // namespace Colors

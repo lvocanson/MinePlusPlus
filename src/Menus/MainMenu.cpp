@@ -46,11 +46,13 @@ UIEvent::Result MainMenu::operator()(const UIEvent::Released& event)
 {
 	if (tracker_.isClicked(playBtn_, event.position))
 	{
-		event.app.submitCommand<SwapUI>([&game = event.app.getGame()](AppUI& ui) { ui.emplace<PlayMenu>(game); });
+		event.app.submitCommand<SwapUI>(
+			[&preferences = event.app.getPreferences()](AppUI& ui) { ui.emplace<PlayMenu>(preferences); });
 	}
 	else if (tracker_.isClicked(settingsBtn_, event.position))
 	{
-		event.app.submitCommand<SwapUI>(SwapUI::DEFAULT<SettingsMenu>);
+		event.app.submitCommand<SwapUI>(
+			[&preferences = event.app.getPreferences()](AppUI& ui) { ui.emplace<SettingsMenu>(preferences); });
 	}
 	else if (tracker_.isClicked(exitBtn_, event.position))
 	{

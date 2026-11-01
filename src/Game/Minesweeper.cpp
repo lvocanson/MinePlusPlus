@@ -7,8 +7,8 @@
 Minesweeper::Minesweeper()
 	: rendering_(false)
 	, state_{}
+	, gameMode_{}
 	, rotationSpeed_{}
-	, runningBombCount_{}
 {
 	clock_.reset();
 }
@@ -102,8 +102,8 @@ void Minesweeper::open(const Vec2s& coordinates)
 	else if (openCount < board_.getOpenCount())
 	{
 		// Move the mine at each revealing click
-		for (auto& index : runningBombIndexes_)
-			index = board_.moveMine(index);
+		for (auto& rbIdx : runningBombIndexes_)
+			rbIdx = board_.moveMine(rbIdx);
 	}
 }
 
@@ -167,8 +167,13 @@ void Minesweeper::resetParameters()
 {
 	setPressedCell(std::nullopt);
 	setRendering(false);
-	setRotationSpeed(0.f);
-	setRunningBombCount(0);
+	setGameMode(Default);
+}
+
+void Minesweeper::setGameMode(GameMode mode)
+{
+	gameMode_ = mode;
+	setRotationSpeed(mode == Spinning ? 1.f : 0.f);
 }
 
 void Minesweeper::setPressedCell(std::optional<Vec2s> coordinates)
@@ -176,16 +181,11 @@ void Minesweeper::setPressedCell(std::optional<Vec2s> coordinates)
 	pressedCell_ = coordinates;
 }
 
-void Minesweeper::setRunningBombCount(std::size_t count)
-{
-	// Clamped at randomization time, the mine count may still change
-	runningBombCount_ = count;
-}
-
 void Minesweeper::randomizeRunningBombIndexes()
 {
 	std::size_t minesLeftToIterate = board_.getMineCount();
-	runningBombIndexes_.assign(std::min(runningBombCount_, minesLeftToIterate), 0);
+	std::size_t count = gameMode_ == RunningBomb ? 1 + minesLeftToIterate / 40 : 0;
+	runningBombIndexes_.assign(std::min(count, minesLeftToIterate), 0);
 
 	std::size_t minesLeftToChoose = runningBombIndexes_.size();
 

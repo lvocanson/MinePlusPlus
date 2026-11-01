@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <limits>
 #include <iterator>
 
 namespace
@@ -74,15 +75,15 @@ Color difficultyColor(double score)
 
 }
 
-CustomMenu::CustomMenu(Minesweeper& game)
-	: game_(game)
+CustomMenu::CustomMenu(App& app)
+	: game_(app.getGame())
 	, widthText_{.origin = Text::Middle, .string = "Width"}
 	, heightText_{.origin = Text::Middle, .string = "Height"}
 	, minesText_{.origin = Text::Middle, .string = "Mines"}
 	, diagnosticText_{.origin = Text::Top}
-	, widthField_{.rect = {{}, BUTTON_SIZE}, .value = 20}
-	, heightField_{.rect = {{}, BUTTON_SIZE}, .value = 20}
-	, minesField_{.rect = {{}, BUTTON_SIZE}, .value = 50}
+	, widthField_{.rect = {{}, BUTTON_SIZE}, .value = app.getPreferences().customWidth}
+	, heightField_{.rect = {{}, BUTTON_SIZE}, .value = app.getPreferences().customHeight}
+	, minesField_{.rect = {{}, BUTTON_SIZE}, .value = app.getPreferences().customMineCount}
 	, backBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Back"}
 	, startBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Start"}
 {
@@ -131,13 +132,20 @@ UIEvent::Result CustomMenu::operator()(const UIEvent::Released& event)
 {
 	if (tracker_.isClicked(backBtn_, event.position))
 	{
-		event.app.submitCommand<SwapUI>([&game = event.app.getGame()](AppUI& ui) { ui.emplace<PlayMenu>(game); });
+		event.app.submitCommand<SwapUI>(
+			[&preferences = event.app.getPreferences()](AppUI& ui) { ui.emplace<PlayMenu>(preferences); });
 	}
 	else if (tracker_.isClicked(startBtn_, event.position))
 	{
 		Vec2s newSize = {widthField_.value, heightField_.value};
+		if (!Board::isSizeValid(newSize) || minesField_.value >= newSize.x * newSize.y)
+			return UIEvent::Consumed;
+
+		game_.resetParameters();
 		game_.resize(newSize);
 		game_.setMineCount(minesField_.value);
+		game_.setGameMode(event.app.getPreferences().gameMode);
+		savePreferences(event.app.getPreferences());
 		event.app.submitCommand<SwapUI>([&app = event.app](AppUI& ui) { ui.emplace<GameUI>(app); });
 		event.app.submitCommand<ChangeClearColor>(Color{0x79, 0x31, 0x32, 0x00});
 	}
@@ -155,6 +163,18 @@ UIEvent::Result CustomMenu::operator()(const UIEvent::Typed& event)
 	updateDiagnostic();
 
 	return UIEvent::Consumed;
+}
+
+void CustomMenu::savePreferences(Preferences& preferences) const
+{
+	if (!Save::isStorable(widthField_.value) || !Save::isStorable(heightField_.value)
+	    || !Save::isStorable(minesField_.value))
+		return;
+
+	preferences.customWidth = std::uint32_t(widthField_.value);
+	preferences.customHeight = std::uint32_t(heightField_.value);
+	preferences.customMineCount = std::uint32_t(minesField_.value);
+	Save::savePreferences(preferences);
 }
 
 void CustomMenu::updateDiagnostic()
@@ -194,10 +214,12 @@ void CustomMenu::updateDiagnostic()
 		double score = difficultyScore(newSize.x, newSize.y, mineCount);
 		std::format_to(out, "Difficulty: {}", difficultyLabel(score));
 		diagnosticText_.color = difficultyColor(score);
+		startBtn_.textColor = Colors::White;
 	}
 	else
 	{
 		diagnosticText_.color = Colors::White;
+		startBtn_.textColor = Colors::Red;
 	}
 
 	diagnosticText_.string = diagnosticStr_;

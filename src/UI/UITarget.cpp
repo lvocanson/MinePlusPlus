@@ -11,6 +11,7 @@ namespace
 
 constexpr auto& FONT_REF = Resources::Fonts::roboto;
 constexpr int OUTLINE_THICKNESS = 1;
+constexpr int BOLD_WEIGHT = 1;
 constexpr Color FILL_COLOR = Colors::White;
 constexpr Color OUTLINE_COLOR = Colors::Black;
 constexpr int CURSOR_WIDTH = 2;
@@ -21,6 +22,7 @@ constexpr Color BUTTON_COLOR = {0x79, 0xB6, 0x1E};
 
 struct GlyphLayout
 {
+	int bold{};
 	Vec2f pen{};
 	char32_t previous{};
 	Vec2f inkMin{}, inkMax{};
@@ -51,14 +53,14 @@ struct GlyphLayout
 		if (glyph.size.x != 0 && glyph.size.y != 0)
 		{
 			Vec2f min = pen + Vec2f(glyph.offset);
-			Vec2f max = min + Vec2f(glyph.size);
+			Vec2f max = min + Vec2f(glyph.size) + Vec2f{float(bold), 0.f};
 			inkMin = hasInk ? Vec2f{std::min(inkMin.x, min.x), std::min(inkMin.y, min.y)} : min;
 			inkMax = hasInk ? Vec2f{std::max(inkMax.x, max.x), std::max(inkMax.y, max.y)} : max;
 			hasInk = true;
 			sink(glyph, pen);
 		}
 
-		pen.x += glyph.advance;
+		pen.x += glyph.advance + float(bold);
 	}
 
 	Rectf bounds() const
@@ -139,9 +141,9 @@ auto codePointsOf(std::size_t value)
 }
 
 template <class Sequence>
-Rectf textSize(Sequence&& sequence)
+Rectf textSize(Sequence&& sequence, int bold = 0)
 {
-	GlyphLayout layout;
+	GlyphLayout layout{.bold = bold};
 	sequence(
 		[&](char32_t codePoint)
 		{
@@ -155,31 +157,20 @@ Vec2i glyphTopLeft(const Glyph& glyph, Vec2f pen)
 	return Vec2i{int(std::lround(pen.x)), int(std::lround(pen.y))} + glyph.offset;
 }
 
-void drawGlyph(Canvas canvas, const Glyph& glyph, Vec2i topLeft, Color color)
-{
-	const std::uint8_t* bitmap = FONT_REF.getBitmap(glyph);
-	blendCoverage(
-		canvas,
-		{topLeft, glyph.size},
-		color,
-		[&](int x, int y) -> unsigned { return bitmap[y * glyph.size.x + x]; });
-}
-
 // TODO: square dilation, a round stroke would need a distance field
-void drawGlyphOutline(Canvas canvas, const Glyph& glyph, Vec2i topLeft, Color color)
+void drawGlyph(Canvas canvas, const Glyph& glyph, Vec2i topLeft, Vec2i before, Vec2i after, Color color)
 {
 	const std::uint8_t* bitmap = FONT_REF.getBitmap(glyph);
-	constexpr int T = OUTLINE_THICKNESS;
-	Vec2i grow{T, T};
+	Vec2i grow = before + after;
 
 	blendCoverage(
 		canvas,
-		{topLeft - grow, glyph.size + grow * 2},
+		{topLeft - before, glyph.size + grow},
 		color,
 		[&](int x, int y) -> unsigned
 		{
-			int left = std::max(x - 2 * T, 0), right = std::min(x, glyph.size.x - 1);
-			int top = std::max(y - 2 * T, 0), bottom = std::min(y, glyph.size.y - 1);
+			int left = std::max(x - grow.x, 0), right = std::min(x, glyph.size.x - 1);
+			int top = std::max(y - grow.y, 0), bottom = std::min(y, glyph.size.y - 1);
 
 			unsigned coverage = 0;
 			for (int sy = top; sy <= bottom; ++sy)
@@ -192,11 +183,13 @@ void drawGlyphOutline(Canvas canvas, const Glyph& glyph, Vec2i topLeft, Color co
 } // namespace
 
 template <class Sequence>
-void UITarget::pushText(Sequence&& sequence, Vec2f position, Text::Origin origin, Color color)
+void UITarget::pushTextAt(Sequence&& sequence, Vec2f offset, Color color, bool bold)
 {
-	Vec2f offset = position - anchorOf(textSize(sequence), origin);
+	int weight = bold ? BOLD_WEIGHT : 0;
+	Vec2i outlineBefore{OUTLINE_THICKNESS, OUTLINE_THICKNESS};
+	Vec2i outlineAfter = outlineBefore + Vec2i{weight, 0};
 
-	GlyphLayout outlineLayout;
+	GlyphLayout outlineLayout{.bold = weight};
 	sequence(
 		[&](char32_t codePoint)
 		{
@@ -204,11 +197,11 @@ void UITarget::pushText(Sequence&& sequence, Vec2f position, Text::Origin origin
 				codePoint,
 				[&](const Glyph& glyph, Vec2f pen)
 				{
-					drawGlyphOutline(canvas_, glyph, glyphTopLeft(glyph, pen + offset), OUTLINE_COLOR);
+					drawGlyph(canvas_, glyph, glyphTopLeft(glyph, pen + offset), outlineBefore, outlineAfter, OUTLINE_COLOR);
 				});
 		});
 
-	GlyphLayout fillLayout;
+	GlyphLayout fillLayout{.bold = weight};
 	sequence(
 		[&](char32_t codePoint)
 		{
@@ -216,9 +209,16 @@ void UITarget::pushText(Sequence&& sequence, Vec2f position, Text::Origin origin
 				codePoint,
 				[&](const Glyph& glyph, Vec2f pen)
 				{
-					drawGlyph(canvas_, glyph, glyphTopLeft(glyph, pen + offset), color);
+					drawGlyph(canvas_, glyph, glyphTopLeft(glyph, pen + offset), {}, {weight, 0}, color);
 				});
 		});
+}
+
+template <class Sequence>
+void UITarget::pushText(Sequence&& sequence, Vec2f position, Text::Origin origin, Color color, bool bold)
+{
+	Rectf bounds = textSize(sequence, bold ? BOLD_WEIGHT : 0);
+	pushTextAt(sequence, position - anchorOf(bounds, origin), color, bold);
 }
 
 void UITarget::draw(const Button& button)
@@ -226,12 +226,33 @@ void UITarget::draw(const Button& button)
 	fillRect(canvas_, button.rect, BUTTON_COLOR);
 	strokeRect(canvas_, button.rect, RECT_OUTLINE_THICKNESS, RECT_OUTLINE_COLOR);
 
-	pushText(codePointsOf(button.text), Rectf(button.rect).getCenter(), Text::Middle, FILL_COLOR);
+	pushText(codePointsOf(button.text), Rectf(button.rect).getCenter(), Text::Middle, button.textColor);
 }
 
 void UITarget::draw(const Text& text)
 {
-	pushText(codePointsOf(text.string), Vec2f(text.position), text.origin, text.color);
+	if (!text.centerLines)
+	{
+		pushText(codePointsOf(text.string), Vec2f(text.position), text.origin, text.color, text.bold);
+		return;
+	}
+
+	int weight = text.bold ? BOLD_WEIGHT : 0;
+	Rectf block = textSize(codePointsOf(text.string), weight);
+	Vec2f offset = Vec2f(text.position) - anchorOf(block, text.origin);
+	float centerX = offset.x + block.getCenter().x;
+
+	std::string_view rest = text.string;
+	for (float lineY = offset.y;; lineY += FONT_REF.getLineSpacing())
+	{
+		std::size_t end = rest.find('\n');
+		std::string_view line = rest.substr(0, end);
+		Rectf bounds = textSize(codePointsOf(line), weight);
+		pushTextAt(codePointsOf(line), {centerX - bounds.getCenter().x, lineY}, text.color, text.bold);
+		if (end == std::string_view::npos)
+			break;
+		rest.remove_prefix(end + 1);
+	}
 }
 
 void UITarget::draw(const NumberField& field)

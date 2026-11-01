@@ -13,7 +13,7 @@ class CustomMenu
 {
 public:
 
-	CustomMenu(Minesweeper&);
+	CustomMenu(class App&);
 	UIEvent::Result operator()(const UIEvent::Resized& event);
 	UIEvent::Result operator()(const UIEvent::Pressed& event);
 	UIEvent::Result operator()(const UIEvent::Released& event);
@@ -22,6 +22,7 @@ public:
 
 private:
 
+	void savePreferences(struct Preferences& preferences) const;
 	void updateDiagnostic();
 
 	Minesweeper& game_;

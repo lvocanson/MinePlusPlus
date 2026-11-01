@@ -143,5 +143,8 @@ void Audio::setVolume(float volume)
 {
 	volume_ = volume;
 	if (state_->deviceReady)
-		ma_device_set_master_volume(&state_->device, volume / MAX_VOLUME);
+	{
+		float fraction = volume / MAX_VOLUME;
+		ma_device_set_master_volume(&state_->device, fraction * fraction);
+	}
 }

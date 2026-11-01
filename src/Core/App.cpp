@@ -13,8 +13,9 @@
 App::App()
 	: clearColor_{0x31, 0x4D, 0x79}
 	, isMouseDraggingCamera_(false)
-	, mousePos_{}
+	, preferences_(Save::loadPreferences())
 {
+	audio_.setVolume(preferences_.volume);
 	window_.open(false);
 	if (window_.isOpen())
 		setupEvents();
@@ -34,8 +35,8 @@ int App::run()
 		lastFrame = now;
 		game_.update(view_, dt);
 
-		Canvas canvas = window_.beginFrame(clearColor_);
 		{
+			Canvas canvas = window_.beginFrame(clearColor_);
 			game_.render(canvas, view_);
 
 			UITarget uiTarget(canvas);
@@ -67,6 +68,11 @@ void App::resetView()
 void App::setViewTarget(Rectf target)
 {
 	view_.fit(target);
+}
+
+void App::resetViewRotation(Vec2f pivot)
+{
+	view_.rotateAround(pivot, -view_.rotation);
 }
 
 void App::setupEvents()
@@ -115,8 +121,7 @@ void App::setupEvents()
 	mfb_set_mouse_scroll_callback(
 		[this](mfb_window*, mfb_key_mod, float dx, float dy)
 		{
-			constexpr float sensitivity = -0.1f; // TODO: parameter + config file
-			float factor = std::pow(2.f, (dx + dy) * sensitivity);
+			float factor = std::pow(2.f, (dx + dy) * -0.1f * preferences_.zoomSensitivity);
 			Vec2f mouse(mousePos_);
 			Vec2f before = view_.toWorld().apply(mouse);
 			view_.zoom /= factor;
@@ -131,10 +136,9 @@ void App::setupEvents()
 			Vec2i newMousePos{x, y};
 			if (isMouseDraggingCamera_)
 			{
-				constexpr float sensitivity = -1.f; // TODO: parameter + config file
 				Transform toWorld = view_.toWorld();
 				Vec2f drag = toWorld.apply(Vec2f(newMousePos)) - toWorld.apply(Vec2f(mousePos_));
-				view_.center += drag * sensitivity;
+				view_.center -= drag * preferences_.panSensitivity;
 			}
 			mousePos_ = newMousePos;
 		},

@@ -21,7 +21,9 @@ public:
 private:
 
 	template <class Sequence>
-	void pushText(Sequence&& sequence, Vec2f position, Text::Origin origin, Color color);
+	void pushText(Sequence&& sequence, Vec2f position, Text::Origin origin, Color color, bool bold = false);
+	template <class Sequence>
+	void pushTextAt(Sequence&& sequence, Vec2f offset, Color color, bool bold);
 
 	Canvas canvas_;
 };

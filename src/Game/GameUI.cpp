@@ -3,6 +3,7 @@
 #include "Game/Resources.h"
 #include "Menus/MainMenu.h"
 #include "UI/UITarget.h"
+#include <algorithm>
 #include <chrono>
 #include <format>
 #include <iterator>
@@ -13,14 +14,30 @@ namespace
 constexpr int SCREEN_PADDING = 5;
 constexpr Vec2i BUTTON_SIZE = {150, 28};
 
+void formatTime(std::back_insert_iterator<std::string> out, std::chrono::milliseconds time, int decimals)
+{
+	constexpr int DIVISORS[] = {1000, 100, 10, 1};
+	auto ms = time.count();
+	if (ms >= 60'000)
+		out = std::format_to(out, "{}min ", ms / 60'000);
+	ms %= 60'000;
+	out = std::format_to(out, "{}", ms / 1000);
+	if (decimals > 0)
+		out = std::format_to(out, ".{:0{}}", ms % 1000 / DIVISORS[decimals], decimals);
+	std::format_to(out, "s");
+}
+
 }
 
 GameUI::GameUI(App& app)
 	: game_(app.getGame())
+	, screenCenter_{}
 	, restartBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Restart"}
 	, mainMenuBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Main Menu"}
 	, resetCameraBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Reset Camera"}
 {
+	if (auto key = Save::makeScoreKey(game_))
+		bestTime_ = Save::loadBestTime(*key);
 	game_.setRendering(true);
 	centerBoardOnView(app);
 }
@@ -32,11 +49,7 @@ GameUI::~GameUI()
 
 UIEvent::Result GameUI::operator()(const UIEvent::Resized& event)
 {
-	gameText_.position =
-	{
-		SCREEN_PADDING,
-		SCREEN_PADDING
-	};
+	screenCenter_ = event.newSize / 2;
 
 	restartBtn_.rect.position =
 	{
@@ -76,6 +89,8 @@ UIEvent::Result GameUI::operator()(const UIEvent::Released& event)
 {
 	if (tracker_.isClicked(restartBtn_, event.position))
 	{
+		bestTime_ = getBestTime();
+		event.app.resetViewRotation(Vec2f(game_.getBoard().getSize()) / 2.f);
 		event.app.getGame().restart();
 	}
 	else if (tracker_.isClicked(mainMenuBtn_, event.position))
@@ -94,24 +109,81 @@ UIEvent::Result GameUI::operator()(const UIEvent::Released& event)
 
 void GameUI::render(UITarget& target) const
 {
-	auto& board = game_.getBoard();
-	std::make_signed_t<std::size_t> minesLeft = board.getMineCount() - board.getFlagCount();
-	float bestTime = std::numeric_limits<float>::signaling_NaN(); // TODO
-	auto time = std::chrono::duration_cast<std::chrono::seconds>(game_.getPlayingTime()).count();
-
 	gameString_.clear();
-	std::format_to(
-		std::back_inserter(gameString_),
-		"Mines left: {}\nBest time: {}s\nTime: {}s",
-		minesLeft,
-		bestTime,
-		time);
+	if (game_.isGameOver())
+		formatEndMessage();
+	else
+		formatGameInfo();
 	gameText_.string = gameString_;
 
 	target.draw(gameText_);
 	target.draw(resetCameraBtn_);
 	target.draw(mainMenuBtn_);
 	target.draw(restartBtn_);
+}
+
+void GameUI::formatGameInfo() const
+{
+	auto& board = game_.getBoard();
+	std::make_signed_t<std::size_t> minesLeft = board.getMineCount() - board.getFlagCount();
+	auto bestTime = getBestTime();
+	auto time = std::chrono::duration_cast<std::chrono::milliseconds>(game_.getPlayingTime());
+
+	gameText_.position = {SCREEN_PADDING, SCREEN_PADDING};
+	gameText_.origin = Text::TopLeft;
+	gameText_.color = Colors::White;
+	gameText_.bold = gameText_.centerLines = false;
+
+	auto out = std::back_inserter(gameString_);
+	std::format_to(out, "Mines left: {}\nBest time: ", minesLeft);
+	if (bestTime)
+		formatTime(out, *bestTime, 2);
+	else
+		std::format_to(out, "-");
+	std::format_to(out, "\nTime: ");
+	formatTime(out, time, 0);
+}
+
+void GameUI::formatEndMessage() const
+{
+	auto& board = game_.getBoard();
+	auto time = std::chrono::duration_cast<std::chrono::milliseconds>(game_.getPlayingTime());
+
+	gameText_.position = screenCenter_;
+	gameText_.origin = Text::Middle;
+	gameText_.bold = gameText_.centerLines = true;
+
+	auto out = std::back_inserter(gameString_);
+	if (game_.isWon())
+	{
+		gameText_.color = Colors::Green;
+		std::format_to(out, "You win!\n");
+		if (!bestTime_ || time < *bestTime_)
+		{
+			std::format_to(out, "New best time!");
+		}
+		else
+		{
+			std::format_to(out, "Best time: ");
+			formatTime(out, *bestTime_, 2);
+		}
+	}
+	else
+	{
+		gameText_.color = Colors::Red;
+		std::format_to(out, "You lose!\nFlagged mines: {}/{}", board.getFlagCount(), board.getMineCount());
+	}
+	std::format_to(out, "\nTime: ");
+	formatTime(out, time, 2);
+}
+
+std::optional<std::chrono::milliseconds> GameUI::getBestTime() const
+{
+	if (!game_.isWon())
+		return bestTime_;
+
+	auto time = std::chrono::duration_cast<std::chrono::milliseconds>(game_.getPlayingTime());
+	return bestTime_ ? std::min(*bestTime_, time) : time;
 }
 
 void GameUI::centerBoardOnView(App& app) const

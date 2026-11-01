@@ -1,6 +1,7 @@
 #pragma once
 #include "AppCommands.h"
 #include "Audio.h"
+#include "Save.h"
 #include "View.h"
 #include "Window.h"
 #include "Game/Minesweeper.h"
@@ -20,6 +21,7 @@ public:
 
 	Minesweeper& getGame() { return game_; }
 	Audio& getAudio() { return audio_; }
+	Preferences& getPreferences() { return preferences_; }
 
 public:
 
@@ -39,6 +41,7 @@ public:
 
 	void resetView();
 	void setViewTarget(Rectf target);
+	void resetViewRotation(Vec2f pivot);
 
 private:
 
@@ -53,6 +56,7 @@ private:
 	bool isMouseDraggingCamera_;
 	Vec2i mousePos_;
 	Minesweeper game_;
+	Preferences preferences_;
 	AppUI ui_;
 	Audio audio_;
 	std::array<AppCommand, 2> commands_;
