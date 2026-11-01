@@ -9,6 +9,7 @@ function(embed_asset out_src name file)
 	set(_hdr "${_dir}/${name}.h")
 	set(_src "${_dir}/${name}.cpp")
 
+	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${file}")
 	file(READ "${file}" _hex HEX)
 	string(LENGTH "${_hex}" _hexlen)
 	math(EXPR _count "${_hexlen} / 2")
