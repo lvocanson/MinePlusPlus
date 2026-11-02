@@ -1,11 +1,12 @@
 #pragma once
 #include "Core/Vec2.h"
+#include "Core/VirtualRegion.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
-#include <vector>
+#include <span>
 
 struct Cell
 {
@@ -42,9 +43,7 @@ class Board
 public:
 
 	Board();
-	Board(const Board&) = default;
 	Board(Board&&) noexcept = default;
-	Board& operator=(const Board&) = default;
 	Board& operator=(Board&&) noexcept = default;
 
 public: // setup methods
@@ -54,13 +53,14 @@ public: // setup methods
 	static bool isSizeValid(const Vec2s& size);
 	void resize(const Vec2s& size);
 	const Vec2s& getSize() const { return size_; }
+	std::size_t getCellCount() const { return size_.x * size_.y; }
 
 	bool areCoordinatesValid(const Vec2s& coordinates) const;
 	bool isIndexValid(std::size_t index) const;
 	std::size_t toIndex(const Vec2s& coordinates) const;
 	Vec2s toCoordinates(std::size_t index) const;
 
-	std::size_t getMaxNumberOfMines() const { return cells_.size() - 1; }
+	std::size_t getMaxNumberOfMines() const { return getCellCount() - 1; }
 	void setMineCount(std::size_t mineCount);
 	std::size_t getMineCount() const { return mineCount_; }
 
@@ -84,19 +84,20 @@ public: // playing methods
 	void flag(std::size_t index);
 	std::size_t getFlagCount() const { return flagCount_; }
 
-	bool isWon() const { return openCount_ == cells_.size() - mineCount_; }
+	bool isWon() const { return openCount_ == getCellCount() - mineCount_; }
 
 #ifdef MPP_CHEATS
 	void revealNumbers();
 	void flagMinesOnly();
 #endif
 
-	const Cell& getCellAt(std::size_t index) const { return cells_[index]; }
-	const std::vector<Cell>& getCells() const { return cells_; }
+	const Cell& getCellAt(std::size_t index) const { return cells()[index]; }
+	std::span<const Cell> getCells() const { return cells(); }
 	NeighbourRange getNeighboursOf(const Vec2s& coordinates) const { return {*this, coordinates}; }
 
 private: // setup helpers
 
+	std::span<Cell> cells() const { return {cellRegion_.getDataAs<Cell>(), getCellCount()}; }
 	void mineCell(std::size_t index);
 	void clearCell(std::size_t index);
 
@@ -112,5 +113,6 @@ private:
 
 	Vec2s size_;
 	std::size_t mineCount_, flagCount_, openCount_;
-	std::vector<Cell> cells_;
+	VirtualRegion cellRegion_;
+	VirtualRegion seedRegion_;
 };

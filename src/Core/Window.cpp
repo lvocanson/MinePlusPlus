@@ -1,5 +1,6 @@
 ﻿#include "Window.h"
 #include "Profiling/Profile.h"
+#include <algorithm>
 #include <utility>
 
 #ifdef _WIN32
@@ -21,6 +22,21 @@ Vec2u getDefaultWindowSize()
 #endif
 	// TODO: query the desktop size on other platforms
 	return {1280, 720};
+}
+
+constexpr std::size_t FRAMEBUFFER_RESERVE_BYTES = std::size_t(7680) * 4320 * sizeof(std::uint32_t);
+
+bool resizeFramebuffer(VirtualRegion& buffer, Vec2i size)
+{
+	std::size_t bytes = std::size_t(size.x) * std::size_t(size.y) * sizeof(std::uint32_t);
+	if (bytes > buffer.getReservedBytes() && !buffer.reserve(std::max(bytes, FRAMEBUFFER_RESERVE_BYTES)))
+		return false;
+	if (!buffer.commitTo(bytes))
+		return false;
+
+	if (bytes < buffer.getCommittedBytes() / 2)
+		buffer.decommitTo(bytes);
+	return true;
 }
 
 } // namespace
@@ -96,13 +112,11 @@ Canvas Window::beginFrame(Color clearColor)
 	Vec2i size = getSize();
 	if (size != bufferSize_)
 	{
-		bufferSize_ = size;
-		buffer_.resize(std::size_t(size.x) * std::size_t(size.y));
-		buffer_.shrink_to_fit();
-		MPP_PROFILE_MEMORY("Framebuffer", buffer_.capacity() * sizeof(std::uint32_t));
+		bufferSize_ = resizeFramebuffer(buffer_, size) ? size : Vec2i{};
+		MPP_PROFILE_MEMORY("Framebuffer", buffer_.getCommittedBytes());
 	}
 
-	Canvas canvas{buffer_.data(), bufferSize_};
+	Canvas canvas{buffer_.getDataAs<std::uint32_t>(), bufferSize_};
 	fill(canvas, clearColor);
 	return canvas;
 }
@@ -112,9 +126,9 @@ void Window::display()
 	if (!window_)
 		return;
 
-	mfb_update_state state = buffer_.empty()
+	mfb_update_state state = !bufferSize_.x || !bufferSize_.y
 	                         ? mfb_update_events(window_)
-	                         : mfb_update_ex(window_, buffer_.data(), unsigned(bufferSize_.x), unsigned(bufferSize_.y));
+	                         : mfb_update_ex(window_, buffer_.getData(), unsigned(bufferSize_.x), unsigned(bufferSize_.y));
 
 	if (state == MFB_STATE_EXIT || !mfb_wait_sync(window_))
 		window_ = nullptr;

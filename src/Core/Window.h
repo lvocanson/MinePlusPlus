@@ -1,10 +1,10 @@
 ﻿#pragma once
 #include "Canvas.h"
+#include "VirtualRegion.h"
 #include "Utils/NotMovable.h"
 #include "Utils/NotCopyable.h"
 #include <MiniFB.h>
 #include <cstdint>
-#include <vector>
 
 class Window : NotCopyable, NotMovable
 {
@@ -26,6 +26,6 @@ public:
 private:
 
 	mfb_window* window_{};
-	std::vector<std::uint32_t> buffer_;
+	VirtualRegion buffer_;
 	Vec2i bufferSize_{};
 };

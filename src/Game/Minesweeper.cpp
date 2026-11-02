@@ -216,7 +216,7 @@ void Minesweeper::randomizeRunningBombIndexes()
 
 	std::size_t minesLeftToChoose = runningBombIndexes_.size();
 
-	auto& cells = board_.getCells();
+	auto cells = board_.getCells();
 	for (std::size_t i = 0; i < cells.size() && minesLeftToChoose; ++i)
 	{
 		if (!cells[i].mined)

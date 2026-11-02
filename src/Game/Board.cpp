@@ -1,12 +1,11 @@
 #include "Board.h"
 #include "Profiling/Profile.h"
 #include "Utils/MyRandom.h"
-#include "Utils/Overloaded.h"
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <limits>
 #include <utility>
-#include <variant>
 
 namespace
 {
@@ -30,6 +29,17 @@ constexpr bool tryAddDelta(std::size_t value, std::ptrdiff_t delta, std::size_t&
 		result = value + magnitude;
 	}
 	return true;
+}
+
+using SeedIndex = std::uint32_t;
+static_assert(Board::MAX_CELLS <= std::numeric_limits<SeedIndex>::max());
+
+constexpr std::size_t getMaxSeedBytes(std::size_t cellCount)
+{
+	constexpr std::size_t maxCellCount = (std::numeric_limits<std::size_t>::max() / sizeof(SeedIndex) - 8) / 4;
+	return cellCount <= maxCellCount
+	       ? (4 * cellCount + 8) * sizeof(SeedIndex)
+	       : std::numeric_limits<std::size_t>::max();
 }
 
 constexpr std::array<Vec2sDelta, 9> dcoordinates
@@ -93,7 +103,6 @@ Board::Board()
 	, mineCount_{}
 	, flagCount_{}
 	, openCount_{}
-	, cells_{}
 {}
 
 bool Board::isSizeValid(const Vec2s& size)
@@ -105,7 +114,9 @@ void Board::resize(const Vec2s& size)
 {
 	assert(isSizeValid(size));
 	size_ = size;
-	std::vector<Cell>().swap(cells_);
+	// TODO: no recovery when the address space cannot be reserved (huge boards on 32-bit builds)
+	if (!cellRegion_.reserve(getCellCount() * sizeof(Cell)) || !seedRegion_.reserve(getMaxSeedBytes(getCellCount())))
+		std::abort();
 	clear();
 }
 
@@ -117,7 +128,7 @@ bool Board::areCoordinatesValid(const Vec2s& coordinates) const
 
 bool Board::isIndexValid(std::size_t index) const
 {
-	return index < cells_.size();
+	return index < getCellCount();
 }
 
 std::size_t Board::toIndex(const Vec2s& coordinates) const
@@ -147,11 +158,11 @@ void Board::placeMines()
 	assert(isSizeValid(size_));
 
 	// Floyd's sampling algorithm (Bentley & Floyd, 1987)
-	for (std::size_t i = cells_.size() - mineCount_; i < cells_.size(); ++i)
+	for (std::size_t i = getCellCount() - mineCount_; i < getCellCount(); ++i)
 	{
 		std::uniform_int_distribution<std::size_t> dist(0, i);
 		std::size_t r = dist(gen);
-		std::size_t index = cells_[r].mined ? i : r;
+		std::size_t index = cells()[r].mined ? i : r;
 		mineCell(index);
 	}
 }
@@ -160,25 +171,29 @@ void Board::clear()
 {
 	assert(isSizeValid(size_));
 	flagCount_ = openCount_ = 0;
-	cells_.assign(size_.x * size_.y, {});
-	MPP_PROFILE_MEMORY("Board cells", cells_.capacity() * sizeof(Cell));
+	cellRegion_.decommitTo(0);
+	seedRegion_.decommitTo(0);
+	// TODO: no recovery when the OS refuses to commit
+	if (!cellRegion_.commitTo(getCellCount() * sizeof(Cell)))
+		std::abort();
+	MPP_PROFILE_MEMORY("Board cells", cellRegion_.getCommittedBytes());
 }
 
 void Board::makeSafe(std::size_t index)
 {
 	assert(isIndexValid(index));
 
-	auto& cell = cells_[index];
+	auto& cell = cells()[index];
 	if (!cell.mined)
 		return;
 
 	// mine the n-th not already mined cell
-	std::size_t spotsLeft = cells_.size() - mineCount_;
+	std::size_t spotsLeft = getCellCount() - mineCount_;
 	std::uniform_int_distribution<std::size_t> dist(1, spotsLeft);
 	std::size_t n = dist(gen);
-	for (std::size_t i = 0; i < cells_.size(); ++i)
+	for (std::size_t i = 0; i < getCellCount(); ++i)
 	{
-		if (!cells_[i].mined && --n == 0)
+		if (!cells()[i].mined && --n == 0)
 		{
 			mineCell(i);
 			break;
@@ -192,7 +207,7 @@ std::size_t Board::moveMine(std::size_t index)
 {
 	assert(isIndexValid(index));
 
-	auto& cell = cells_[index];
+	auto& cell = cells()[index];
 	if (!cell.mined)
 		return index;
 
@@ -203,7 +218,7 @@ std::size_t Board::moveMine(std::size_t index)
 	{
 		// can't move to if its mined or opened
 		std::size_t idx = toIndex(coordinates);
-		if (cells_[idx].mined || cells_[idx].opened)
+		if (cells()[idx].mined || cells()[idx].opened)
 			continue;
 
 		unoccupiedNbIndexes[unoccupiedNbCount] = idx;
@@ -223,76 +238,38 @@ std::size_t Board::moveMine(std::size_t index)
 
 struct Board::SeedStack
 {
-#ifdef MPP_BOARD_FIXED_SEED_STACK_CAPACITY
-	static constexpr std::size_t CAPACITY = MPP_BOARD_FIXED_SEED_STACK_CAPACITY;
-#else
-	static constexpr std::size_t CAPACITY = 32;
-#endif // MPP_BOARD_FIXED_SEED_STACK_CAPACITY
+	VirtualRegion& region;
+	std::size_t top = 0;
 
-	struct Fixed { std::size_t buf[CAPACITY]; std::size_t top = 0; };
-	struct Heap { std::vector<std::size_t> vec; };
+	bool empty() const { return top == 0; }
 
-	std::variant<Fixed, Heap> store;
-
-	bool empty() const
-	{
-		return std::visit(Overloaded
-			{
-				[](const Fixed& f) { return f.top == 0; },
-				[](const Heap& h) { return h.vec.empty(); }
-			}, store);
-	}
-
-	std::size_t pop()
-	{
-		return std::visit(Overloaded
-			{
-				[](Fixed& f) { return f.buf[--f.top]; },
-				[](Heap& h) { std::size_t i = h.vec.back(); h.vec.pop_back(); return i; }
-			}, store);
-	}
+	std::size_t pop() { return region.getDataAs<SeedIndex>()[--top]; }
 
 	void push(std::size_t index)
 	{
-		std::visit(Overloaded
-			{
-				[&](Fixed& f)
-				{
-					if (f.top < CAPACITY)
-					{
-						f.buf[f.top++] = index;
-						return;
-					}
-					// Overflow: switch to the heap alternative, carrying the buffered seeds.
-					Heap h;
-					h.vec.reserve(CAPACITY * 2);
-					h.vec.assign(f.buf, f.buf + f.top);
-					h.vec.push_back(index);
-					store.emplace<Heap>(std::move(h));
-				},
-				[&](Heap& h) { h.vec.push_back(index); }
-			}, store);
+		std::size_t bytes = (top + 1) * sizeof(SeedIndex);
+		if (bytes > region.getCommittedBytes())
+		{
+			assert(bytes <= region.getReservedBytes());
+			std::size_t target = std::min(std::max(bytes, region.getCommittedBytes() * 2), region.getReservedBytes());
+			// TODO: no recovery when the OS refuses to commit
+			if (!region.commitTo(target))
+				std::abort();
+		}
+		region.getDataAs<SeedIndex>()[top++] = SeedIndex(index);
 	}
-
-#ifdef MPP_PROFILING
-	std::size_t heapBytes() const
-	{
-		const Heap* heap = std::get_if<Heap>(&store);
-		return heap ? heap->vec.capacity() * sizeof(std::size_t) : 0;
-	}
-#endif
 };
 
 bool Board::open(std::size_t index)
 {
 	assert(isIndexValid(index));
 
-	auto& first = cells_[index];
+	auto& first = cells()[index];
 	if (first.flagged)
 		return false;
 
 	bool mineOpened = false;
-	SeedStack stack;
+	SeedStack stack{seedRegion_};
 
 	if (!first.opened)
 	{
@@ -317,7 +294,7 @@ bool Board::open(std::size_t index)
 		std::size_t flaggedNeighbourCount = 0;
 		for (auto& coo : getNeighboursOf(coordinates))
 		{
-			flaggedNeighbourCount += cells_[toIndex(coo)].flagged;
+			flaggedNeighbourCount += cells()[toIndex(coo)].flagged;
 		}
 
 		if (flaggedNeighbourCount != first.adjacentMines)
@@ -331,14 +308,14 @@ bool Board::open(std::size_t index)
 		fillFrom(stack.pop(), stack, mineOpened);
 	}
 
-	MPP_PROFILE_MEMORY_PEAK("Seed stack", stack.heapBytes());
+	MPP_PROFILE_MEMORY_PEAK("Seed stack", seedRegion_.getCommittedBytes());
 	return mineOpened;
 }
 
 void Board::flag(std::size_t index)
 {
 	assert(isIndexValid(index));
-	auto& cell = cells_[index];
+	auto& cell = cells()[index];
 	if (!cell.opened)
 	{
 		flagCount_ += std::size_t(cell.flagged ^= true) * 2 - 1;
@@ -348,7 +325,7 @@ void Board::flag(std::size_t index)
 #ifdef MPP_CHEATS
 void Board::revealNumbers()
 {
-	for (auto& cell : cells_)
+	for (auto& cell : cells())
 		if (!cell.opened && !cell.mined && cell.adjacentMines)
 			openCell(cell);
 }
@@ -356,7 +333,7 @@ void Board::revealNumbers()
 void Board::flagMinesOnly()
 {
 	flagCount_ = 0;
-	for (auto& cell : cells_)
+	for (auto& cell : cells())
 	{
 		if (!cell.opened)
 		{
@@ -370,22 +347,22 @@ void Board::flagMinesOnly()
 void Board::mineCell(std::size_t index)
 {
 	assert(isIndexValid(index));
-	assert(!cells_[index].mined);
-	cells_[index].mined = true;
+	assert(!cells()[index].mined);
+	cells()[index].mined = true;
 	for (auto& coordinates : getNeighboursOf(toCoordinates(index)))
 	{
-		++cells_[toIndex(coordinates)].adjacentMines;
+		++cells()[toIndex(coordinates)].adjacentMines;
 	}
 }
 
 void Board::clearCell(std::size_t index)
 {
 	assert(isIndexValid(index));
-	assert(cells_[index].mined);
-	cells_[index].mined = false;
+	assert(cells()[index].mined);
+	cells()[index].mined = false;
 	for (auto& coordinates : getNeighboursOf(toCoordinates(index)))
 	{
-		--cells_[toIndex(coordinates)].adjacentMines;
+		--cells()[toIndex(coordinates)].adjacentMines;
 	}
 }
 
@@ -404,7 +381,7 @@ void Board::chord(const Vec2s& cursor, SeedStack& stack, bool& mineOpened)
 	for (auto& coo : getNeighboursOf(cursor))
 	{
 		std::size_t index = toIndex(coo);
-		auto& cell = cells_[index];
+		auto& cell = cells()[index];
 
 		if (cell.opened || cell.flagged)
 			continue;
@@ -418,7 +395,7 @@ void Board::chord(const Vec2s& cursor, SeedStack& stack, bool& mineOpened)
 
 void Board::fillFrom(std::size_t index, SeedStack& stack, bool& mineOpened)
 {
-	auto& seed = cells_[index];
+	auto& seed = cells()[index];
 	if (seed.opened || seed.adjacentMines)
 		return;
 
@@ -433,7 +410,7 @@ void Board::fillFrom(std::size_t index, SeedStack& stack, bool& mineOpened)
 
 	while (l > rBeg)
 	{
-		auto& cell = cells_[l - 1];
+		auto& cell = cells()[l - 1];
 		if (cell.opened)
 			break;
 
@@ -446,7 +423,7 @@ void Board::fillFrom(std::size_t index, SeedStack& stack, bool& mineOpened)
 
 	while (r < rEnd)
 	{
-		auto& cell = cells_[r + 1];
+		auto& cell = cells()[r + 1];
 		if (cell.opened)
 			break;
 
@@ -462,7 +439,7 @@ void Board::fillFrom(std::size_t index, SeedStack& stack, bool& mineOpened)
 
 	if (index >= width)
 		scanRow(a - width, b - width, stack, mineOpened);
-	if (index + width < cells_.size())
+	if (index + width < getCellCount())
 		scanRow(a + width, b + width, stack, mineOpened);
 }
 
@@ -470,7 +447,7 @@ void Board::scanRow(std::size_t l, std::size_t r, SeedStack& stack, bool& mineOp
 {
 	for (std::size_t i = l; i <= r; ++i)
 	{
-		auto& cell = cells_[i];
+		auto& cell = cells()[i];
 		if (cell.opened)
 			continue;
 
@@ -484,7 +461,7 @@ void Board::scanRow(std::size_t l, std::size_t r, SeedStack& stack, bool& mineOp
 		stack.push(i);
 		while (i < r)
 		{
-			auto next = cells_[i + 1];
+			auto next = cells()[i + 1];
 			if (next.opened || next.adjacentMines)
 				break;
 
