@@ -68,8 +68,23 @@ void App::resetView()
 
 void App::setViewTarget(Rectd target)
 {
-	if (!view_.fit(target) && view_.zoom == View::MIN_ZOOM)
-		view_.setTopLeft(target.position);
+	if (view_.fit(target) || view_.zoom != View::MIN_ZOOM)
+		return;
+
+	Vec2d visible = view_.getVisibleSize();
+	Vec2d world = target.getCenter();
+	Vec2d screen = view_.viewport / 2.0;
+	if (target.size.x > visible.x)
+	{
+		world.x = target.position.x;
+		screen.x = 0.0;
+	}
+	if (target.size.y > visible.y)
+	{
+		world.y = target.position.y;
+		screen.y = 0.0;
+	}
+	view_.pin(world, screen);
 }
 
 void App::resetViewRotation(Vec2d pivot)

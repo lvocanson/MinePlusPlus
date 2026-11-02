@@ -9,6 +9,7 @@ set(MINIFB_BUILD_VERSION_INFO OFF)
 FetchContent_Declare(minifb
 	URL      https://github.com/emoon/minifb/archive/2ca56860a2be5f62414ebe6bfaf385716d75327f.tar.gz
 	URL_HASH SHA256=4268a772f7590c113e9cdf6710beff9b465723784c0bfe142be2f92b59419630
+	PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/patches/minifb_mouse_capture.cmake
 	EXCLUDE_FROM_ALL
 	SYSTEM
 )

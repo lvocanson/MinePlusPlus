@@ -57,9 +57,9 @@ bool View::fit(Rectd target)
 	return zoom == wanted;
 }
 
-void View::setTopLeft(Vec2d position)
+void View::pin(Vec2d world, Vec2d screen)
 {
-	center += position - toWorld().apply({});
+	center += world - toWorld().apply(screen);
 }
 
 void View::rotateAround(Vec2d pivot, double angle)

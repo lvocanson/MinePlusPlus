@@ -187,4 +187,4 @@ Third-party components keep their own licenses:
 | [MiniFB](https://github.com/emoon/minifb) | MIT |
 | [miniaudio](https://github.com/mackron/miniaudio) | Public domain or MIT No Attribution |
 | [stb](https://github.com/nothings/stb) | Public domain or MIT |
-| [Roboto](https://fonts.google.com/specimen/Roboto) font | SIL Open Font License 1.1 |
+| [Roboto](https://fonts.google.com/specimen/Roboto) font | [SIL Open Font License 1.1](res/roboto-OFL.txt) |

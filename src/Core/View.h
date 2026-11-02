@@ -26,6 +26,6 @@ struct View
 
 	void reset();
 	bool fit(Rectd target);
-	void setTopLeft(Vec2d position);
+	void pin(Vec2d world, Vec2d screen);
 	void rotateAround(Vec2d pivot, double angle);
 };
