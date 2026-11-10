@@ -35,6 +35,7 @@ public:
 
 	void resize(const Vec2s& size);
 	void setMineCount(std::size_t mineCount);
+	void setSeed(std::uint32_t seed) { seed_ = seed; }
 
 	void restart();
 	void open(const Vec2s& coordinates);
@@ -67,6 +68,7 @@ public:
 
 private:
 
+	void start();
 	void randomizeRunningBombIndexes();
 
 private:
@@ -90,6 +92,7 @@ private:
 
 	GameMode gameMode_;
 	float rotationSpeed_;
+	std::uint32_t seed_;
 
 	// Indexes of the running bombs, only filled while playing.
 	std::vector<std::size_t> runningBombIndexes_;

@@ -1,6 +1,7 @@
 #pragma once
 #include "Core/Vec2.h"
 #include "Core/VirtualRegion.h"
+#include "Utils/SeededRandom.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -64,7 +65,7 @@ public: // setup methods
 	void setMineCount(std::size_t mineCount);
 	std::size_t getMineCount() const { return mineCount_; }
 
-	void placeMines();
+	void placeMines(std::uint32_t seed);
 	void clear();
 
 	// Make sure the 'index' cell is not mined, moving the mine to an other random
@@ -113,6 +114,7 @@ private:
 
 	Vec2s size_;
 	std::size_t mineCount_, flagCount_, openCount_;
+	SeededRandom random_;
 	VirtualRegion cellRegion_;
 	VirtualRegion seedRegion_;
 };

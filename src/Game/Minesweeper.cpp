@@ -10,6 +10,7 @@ Minesweeper::Minesweeper()
 	, state_{}
 	, gameMode_{}
 	, rotationSpeed_{}
+	, seed_{}
 {
 	clock_.reset();
 }
@@ -18,18 +19,21 @@ void Minesweeper::setEasy()
 {
 	resize({9, 9});
 	setMineCount(10);
+	setSeed(makeSystemSeed());
 }
 
 void Minesweeper::setMedium()
 {
 	resize({16, 16});
 	setMineCount(40);
+	setSeed(makeSystemSeed());
 }
 
 void Minesweeper::setHard()
 {
 	resize({30, 16});
 	setMineCount(99);
+	setSeed(makeSystemSeed());
 }
 
 void Minesweeper::resize(const Vec2s& size)
@@ -52,6 +56,12 @@ void Minesweeper::setMineCount(std::size_t mineCount)
 
 void Minesweeper::restart()
 {
+	setSeed(makeSystemSeed());
+	start();
+}
+
+void Minesweeper::start()
+{
 	// If resize was not called once, then the size is invalid (0, 0)
 	if (!board_.isSizeValid(board_.getSize()))
 	{
@@ -60,7 +70,7 @@ void Minesweeper::restart()
 	}
 
 	board_.clear();
-	board_.placeMines();
+	board_.placeMines(seed_);
 	// Indexes of the previous game no longer point to mines
 	runningBombIndexes_.clear();
 	clock_.reset();
@@ -71,7 +81,7 @@ void Minesweeper::restart()
 void Minesweeper::open(const Vec2s& coordinates)
 {
 	if (state_ == Empty)
-		restart();
+		start();
 
 	if (!board_.areCoordinatesValid(coordinates))
 		return;
@@ -112,7 +122,7 @@ void Minesweeper::open(const Vec2s& coordinates)
 void Minesweeper::flag(const Vec2s& coordinates)
 {
 	if (state_ == Empty)
-		restart();
+		start();
 
 	if (state_ != Ready && state_ != Playing)
 		return;

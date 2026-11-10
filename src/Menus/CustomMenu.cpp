@@ -2,6 +2,7 @@
 #include "Core/App.h"
 #include "Game/Minesweeper.h"
 #include "UI/UITarget.h"
+#include "Utils/SeededRandom.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -80,10 +81,12 @@ CustomMenu::CustomMenu(App& app)
 	, widthText_{.origin = Text::Middle, .string = "Width"}
 	, heightText_{.origin = Text::Middle, .string = "Height"}
 	, minesText_{.origin = Text::Middle, .string = "Mines"}
+	, seedText_{.origin = Text::Middle, .string = "Seed"}
 	, diagnosticText_{.origin = Text::Top}
 	, widthField_{.rect = {{}, BUTTON_SIZE}, .value = app.getPreferences().customWidth}
 	, heightField_{.rect = {{}, BUTTON_SIZE}, .value = app.getPreferences().customHeight}
 	, minesField_{.rect = {{}, BUTTON_SIZE}, .value = app.getPreferences().customMineCount}
+	, seedField_{.rect = {{}, BUTTON_SIZE}, .value = makeSystemSeed()}
 	, backBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Back"}
 	, startBtn_{.rect = {{}, BUTTON_SIZE}, .text = "Start"}
 {
@@ -96,10 +99,12 @@ UIEvent::Result CustomMenu::operator()(const UIEvent::Resized& event)
 	widthText_.position = centerView - ELEMENTS_GAP;
 	heightText_.position = centerView - Vec2i(0, ELEMENTS_GAP.y);
 	minesText_.position = centerView + Vec2i(ELEMENTS_GAP.x, -ELEMENTS_GAP.y);
+	seedText_.position = centerView + Vec2i(0, ELEMENTS_GAP.y / 2);
 	diagnosticText_.position = centerView + Vec2i(0, ELEMENTS_GAP.y * 2);
 	widthField_.rect.position = centerView - widthField_.rect.size / 2 - Vec2i(ELEMENTS_GAP.x, 0);
 	heightField_.rect.position = centerView - heightField_.rect.size / 2;
 	minesField_.rect.position = centerView - minesField_.rect.size / 2 + Vec2i(ELEMENTS_GAP.x, 0);
+	seedField_.rect.position = centerView - seedField_.rect.size / 2 + Vec2i(0, ELEMENTS_GAP.y);
 	backBtn_.rect.position = centerView - backBtn_.rect.size / 2 + Vec2i(-ELEMENTS_GAP.x, ELEMENTS_GAP.y);
 	startBtn_.rect.position = centerView - startBtn_.rect.size / 2 + ELEMENTS_GAP;
 	return UIEvent::Consumed;
@@ -123,6 +128,10 @@ UIEvent::Result CustomMenu::operator()(const UIEvent::Pressed& event)
 	{
 		cursor_.field = &minesField_;
 	}
+	else if (seedField_.rect.contains(event.position))
+	{
+		cursor_.field = &seedField_;
+	}
 	else
 		return UIEvent::Ignored;
 	return UIEvent::Consumed;
@@ -138,12 +147,15 @@ UIEvent::Result CustomMenu::operator()(const UIEvent::Released& event)
 	else if (tracker_.isClicked(startBtn_, event.position))
 	{
 		Vec2s newSize = {widthField_.value, heightField_.value};
-		if (!Board::isSizeValid(newSize) || minesField_.value >= newSize.x * newSize.y)
+		if (!Board::isSizeValid(newSize) || minesField_.value >= newSize.x * newSize.y
+		    || seedField_.value > std::numeric_limits<std::uint32_t>::max())
 			return UIEvent::Consumed;
 
 		game_.resetParameters();
 		game_.resize(newSize);
 		game_.setMineCount(minesField_.value);
+		// TODO: a typed seed lets the player replay a known board, best times are still recorded
+		game_.setSeed(std::uint32_t(seedField_.value));
 		game_.setGameMode(event.app.getPreferences().gameMode);
 		savePreferences(event.app.getPreferences());
 		event.app.submitCommand<SwapUI>([&app = event.app](AppUI& ui) { ui.emplace<GameUI>(app); });
@@ -210,6 +222,11 @@ void CustomMenu::updateDiagnostic()
 		std::format_to(out, "Max number of mines exceeded: {}/{}\n", mineCount, cellCount - 1);
 	}
 
+	if (seedField_.value > std::numeric_limits<std::uint32_t>::max())
+	{
+		std::format_to(out, "Max seed exceeded: {}/{}\n", seedField_.value, std::numeric_limits<std::uint32_t>::max());
+	}
+
 	if (diagnosticStr_.empty())
 	{
 		double score = difficultyScore(newSize.x, newSize.y, mineCount);
@@ -231,10 +248,12 @@ void CustomMenu::render(UITarget& target) const
 	target.draw(widthText_);
 	target.draw(heightText_);
 	target.draw(minesText_);
+	target.draw(seedText_);
 	target.draw(diagnosticText_);
 	target.draw(widthField_);
 	target.draw(heightField_);
 	target.draw(minesField_);
+	target.draw(seedField_);
 	target.draw(backBtn_);
 	target.draw(startBtn_);
 	target.draw(cursor_);

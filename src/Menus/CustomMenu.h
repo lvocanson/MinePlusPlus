@@ -27,8 +27,8 @@ private:
 
 	Minesweeper& game_;
 	std::string diagnosticStr_;
-	Text widthText_, heightText_, minesText_, diagnosticText_;
-	NumberField widthField_, heightField_, minesField_;
+	Text widthText_, heightText_, minesText_, seedText_, diagnosticText_;
+	NumberField widthField_, heightField_, minesField_, seedField_;
 	Button backBtn_, startBtn_;
 	Cursor cursor_;
 	ClickTracker tracker_;

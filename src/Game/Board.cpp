@@ -1,14 +1,36 @@
 #include "Board.h"
 #include "Profiling/Profile.h"
-#include "Utils/MyRandom.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <utility>
 
 namespace
 {
+
+void countAdjacentMines(Cell* data, const Vec2s& size)
+{
+	std::size_t width = size.x;
+	for (std::size_t y = 0; y < size.y; ++y)
+	{
+		Cell* row = data + y * width;
+		unsigned hasUp = y > 0, hasDown = y + 1 < size.y;
+		const Cell* up = hasUp ? row - width : row;
+		const Cell* down = hasDown ? row + width : row;
+		auto column = [&](std::size_t x) { return row[x].mined + hasUp * up[x].mined + hasDown * down[x].mined; };
+
+		unsigned previous = 0, current = column(0);
+		for (std::size_t x = 0; x < width; ++x)
+		{
+			unsigned next = x + 1 < width ? column(x + 1) : 0;
+			row[x].adjacentMines = std::uint8_t(previous + current + next);
+			previous = current;
+			current = next;
+		}
+	}
+}
 
 // Adds a signed offset to an unsigned coordinate. Returns false on under/overflow.
 constexpr bool tryAddDelta(std::size_t value, std::ptrdiff_t delta, std::size_t& result)
@@ -114,10 +136,17 @@ void Board::resize(const Vec2s& size)
 {
 	assert(isSizeValid(size));
 	size_ = size;
+	flagCount_ = openCount_ = 0;
+	std::size_t cellBytes = getCellCount() * sizeof(Cell);
 	// TODO: no recovery when the address space cannot be reserved (huge boards on 32-bit builds)
-	if (!cellRegion_.reserve(getCellCount() * sizeof(Cell)) || !seedRegion_.reserve(getMaxSeedBytes(getCellCount())))
+	if (!cellRegion_.reserve(cellBytes) || !seedRegion_.reserve(getMaxSeedBytes(getCellCount())))
 		std::abort();
-	clear();
+	// TODO: no recovery when the OS refuses to commit
+	if (!cellRegion_.commitTo(cellBytes))
+		std::abort();
+
+	// Don't need to clear(), freshly committed pages are zeroed.
+	MPP_PROFILE_MEMORY("Board cells", cellRegion_.getCommittedBytes());
 }
 
 bool Board::areCoordinatesValid(const Vec2s& coordinates) const
@@ -153,30 +182,28 @@ void Board::setMineCount(std::size_t mineCount)
 	mineCount_ = mineCount;
 }
 
-void Board::placeMines()
+void Board::placeMines(std::uint32_t seed)
 {
 	assert(isSizeValid(size_));
+	random_ = {seed};
 
 	// Floyd's sampling algorithm (Bentley & Floyd, 1987)
 	for (std::size_t i = getCellCount() - mineCount_; i < getCellCount(); ++i)
 	{
-		std::uniform_int_distribution<std::size_t> dist(0, i);
-		std::size_t r = dist(gen);
+		std::size_t r = random_.nextBelow(std::uint32_t(i + 1));
 		std::size_t index = cells()[r].mined ? i : r;
-		mineCell(index);
+		cells()[index].mined = true;
 	}
+
+	countAdjacentMines(cells().data(), size_);
 }
 
 void Board::clear()
 {
 	assert(isSizeValid(size_));
 	flagCount_ = openCount_ = 0;
-	cellRegion_.decommitTo(0);
 	seedRegion_.decommitTo(0);
-	// TODO: no recovery when the OS refuses to commit
-	if (!cellRegion_.commitTo(getCellCount() * sizeof(Cell)))
-		std::abort();
-	MPP_PROFILE_MEMORY("Board cells", cellRegion_.getCommittedBytes());
+	std::memset(cellRegion_.getData(), 0, getCellCount() * sizeof(Cell));
 }
 
 void Board::makeSafe(std::size_t index)
@@ -189,8 +216,7 @@ void Board::makeSafe(std::size_t index)
 
 	// mine the n-th not already mined cell
 	std::size_t spotsLeft = getCellCount() - mineCount_;
-	std::uniform_int_distribution<std::size_t> dist(1, spotsLeft);
-	std::size_t n = dist(gen);
+	std::size_t n = 1 + random_.nextBelow(std::uint32_t(spotsLeft));
 	for (std::size_t i = 0; i < getCellCount(); ++i)
 	{
 		if (!cells()[i].mined && --n == 0)
@@ -229,8 +255,7 @@ std::size_t Board::moveMine(std::size_t index)
 		return index;
 
 	clearCell(index);
-	std::uniform_int_distribution<std::size_t> dist(0, unoccupiedNbCount - 1);
-	std::size_t idx = unoccupiedNbIndexes[dist(gen)];
+	std::size_t idx = unoccupiedNbIndexes[random_.nextBelow(std::uint32_t(unoccupiedNbCount))];
 	mineCell(idx);
 
 	return idx;
